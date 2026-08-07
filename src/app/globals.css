@@ -3,25 +3,187 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --obsidian: #0c111b;
+  --midnight: #1a2336;
+  --slate: #2a3850;
+  --slate-light: #5a6b86;
+  --pearl: #f4f7fb;
+  --gold: #d2c09a;
+  --gold-mid: #e4d5b4;
+  --gold-light: #f0e6d0;
+  --emerald: #3cb87a;
+  --amber: #d4a04a;
+  --crimson: #d06a5a;
+  --border: rgba(226, 232, 240, 0.12);
+  --text-primary: #f4f7fb;
+  --text-secondary: #b0bbcf;
+  --text-muted: #7a8aa3;
+  --background: #0c111b;
+  --foreground: #f4f7fb;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+
+  .gold-text {
+    background: linear-gradient(
+      135deg,
+      #d4af37 0%,
+      #e8ca6a 45%,
+      #f3e5ab 75%,
+      #d4af37 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-size: 200% auto;
+  }
+
+  .glass {
+    @apply border border-white/10 bg-[#1E2640]/55 shadow-glass backdrop-blur-xl;
+  }
+
+  .glass-dark {
+    @apply border border-white/10 bg-[#0A0F1D]/70 backdrop-blur-2xl;
+  }
+
+  .glass-panel {
+    @apply border border-white/20 bg-white/80 shadow-xl backdrop-blur-md dark:border-slate-800/50 dark:bg-slate-900/80;
+  }
+
+  .glass-gold {
+    background: linear-gradient(
+      135deg,
+      rgba(212, 175, 55, 0.1) 0%,
+      rgba(243, 229, 171, 0.05) 100%
+    );
+    @apply border border-[#D4AF37]/20 backdrop-blur-md;
+  }
+
+  .section-label {
+    @apply font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-[#D4AF37];
+  }
+
+  .ambient-surface {
+    @apply relative overflow-hidden;
+    background-image: radial-gradient(
+        ellipse at top right,
+        rgba(212, 175, 55, 0.08),
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse at bottom left,
+        rgba(0, 200, 83, 0.05),
+        transparent 50%
+      );
+  }
+
+  .hero-kenburns {
+    animation: heroKenBurns 28s ease-in-out infinite alternate;
+  }
+
+  .hero-fade-up {
+    animation: fadeUp 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .hero-line {
+    animation: heroLine 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.35s both;
+  }
+}
+
+@keyframes heroKenBurns {
+  from {
+    transform: scale(1.05) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.14) translate3d(-1.5%, 1%, 0);
+  }
+}
+
+@keyframes heroLine {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@layer components {
+  /* Figma gold CTA */
+  .btn-gold {
+    background: linear-gradient(
+      135deg,
+      #c9a227 0%,
+      #d4af37 30%,
+      #e8ca6a 60%,
+      #f3e5ab 80%,
+      #d4af37 100%
+    );
+    background-size: 200% auto;
+    @apply font-display font-bold text-[#0A0F1D]
+      shadow-[0_4px_24px_rgba(212,175,55,0.30),0_1px_0_rgba(255,255,255,0.15)_inset]
+      transition-all duration-300
+      hover:-translate-y-px hover:shadow-[0_8px_40px_rgba(212,175,55,0.50),0_1px_0_rgba(255,255,255,0.15)_inset]
+      active:translate-y-0 disabled:pointer-events-none disabled:opacity-45;
+  }
+
+  .status-available {
+    @apply border border-emerald-500/20 bg-emerald-500/10 text-emerald-500;
+  }
+
+  .status-reserved {
+    @apply border border-amber-500/20 bg-amber-500/10 text-amber-500;
+  }
+
+  .status-sold {
+    @apply border border-rose-500/20 bg-rose-500/10 text-rose-400;
+  }
+
+  .status-blocked {
+    @apply border border-slate-500/20 bg-slate-500/10 text-slate-400;
+  }
+
+  .dot-available {
+    @apply inline-block h-[7px] w-[7px] rounded-full bg-[#00C853]
+      shadow-[0_0_6px_#00C853,0_0_12px_rgba(0,200,83,0.4)];
+  }
+
+  .dot-reserved {
+    @apply inline-block h-1.5 w-1.5 rounded-full bg-plot-reserved shadow-[0_0_6px_rgba(196,146,58,0.45)];
+  }
+
+  .dot-sold {
+    @apply inline-block h-1.5 w-1.5 rounded-full bg-plot-sold shadow-[0_0_6px_rgba(196,90,74,0.45)];
+  }
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(160, 176, 200, 0.28);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(160, 176, 200, 0.45);
 }
