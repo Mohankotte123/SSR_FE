@@ -21,14 +21,10 @@ import { logout } from "@/lib/api";
 import { getStoredAdminUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
-export interface AdminSidebarProps {
-  ventureId?: string;
-}
-
 /**
  * Responsive dark admin navigation.
  */
-export function AdminSidebar(_props: AdminSidebarProps = {}) {
+export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
