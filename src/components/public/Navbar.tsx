@@ -81,11 +81,11 @@ export function Navbar({ activeHref = "/" }: NavbarProps) {
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <a
-            href="tel:+919876543210"
+            href="tel:+919849105449"
             className="btn-gold hidden items-center gap-2 rounded-full px-4 py-2 text-[12px] md:inline-flex lg:px-[22px] lg:py-[9px] lg:text-[13px]"
           >
             <Phone className="h-3.5 w-3.5" />
-            <span className="hidden lg:inline">+91 98765 43210</span>
+            <span className="hidden lg:inline">+91 9849105449</span>
             <span className="lg:hidden">Call</span>
           </a>
           <Link
