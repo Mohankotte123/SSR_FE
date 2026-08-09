@@ -1,9 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { cn, formatDecimal, num } from "@/lib/utils";
+import {
+  findPlotElement,
+  paintPlotShape,
+  sanitizeSvgMarkup,
+} from "@/lib/svg-layout";
 import {
   PLOT_STATUS_COLOR,
   PLOT_STATUS_FILL,
@@ -26,7 +31,8 @@ type StatusFilter = PlotStatus | "all";
 
 /**
  * Interactive SVG layout viewer with status fills, filters, and zoom.
- * Falls back to a generated plot grid when no SVG URL / element binding exists.
+ * Inlines the uploaded SVG (via same-origin proxy) so plots are clickable.
+ * Falls back to a generated plot grid when no SVG URL / fetch fails.
  */
 export function SVGLayoutViewer({
   svgUrl,
@@ -40,6 +46,12 @@ export function SVGLayoutViewer({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [facingFilter, setFacingFilter] = useState<string>("all");
   const [zoom, setZoom] = useState(1);
+  const [svgMarkup, setSvgMarkup] = useState<string | null>(null);
+  const [svgError, setSvgError] = useState<string | null>(null);
+  const [svgLoading, setSvgLoading] = useState(false);
+  const svgHostRef = useRef<HTMLDivElement>(null);
+  const onPlotSelectRef = useRef(onPlotSelect);
+  onPlotSelectRef.current = onPlotSelect;
 
   const counts = useMemo(
     () => ({
@@ -71,6 +83,131 @@ export function SVGLayoutViewer({
     );
   }, [plots, statusFilter, facingFilter]);
 
+  const plotsById = useMemo(() => {
+    const map = new Map<string, Plot>();
+    plots.forEach((p) => map.set(p.id, p));
+    return map;
+  }, [plots]);
+
+  // Fetch + sanitize SVG (proxy prevents download / CORS blank embeds)
+  useEffect(() => {
+    if (!svgUrl) {
+      setSvgMarkup(null);
+      setSvgError(null);
+      setSvgLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    async function load() {
+      setSvgLoading(true);
+      setSvgError(null);
+      try {
+        const proxy = `/svg-proxy?url=${encodeURIComponent(svgUrl!)}`;
+        let res = await fetch(proxy, { signal: controller.signal });
+        if (!res.ok) {
+          // Fallback: direct fetch (public buckets often allow CORS)
+          res = await fetch(svgUrl!, { signal: controller.signal });
+        }
+        if (!res.ok) {
+          throw new Error(`Could not load layout (${res.status})`);
+        }
+        const text = await res.text();
+        if (!text.includes("<svg")) {
+          throw new Error("Layout file is not a valid SVG");
+        }
+        if (!cancelled) {
+          setSvgMarkup(sanitizeSvgMarkup(text));
+        }
+      } catch (err) {
+        if (cancelled || (err instanceof Error && err.name === "AbortError")) {
+          return;
+        }
+        if (!cancelled) {
+          setSvgMarkup(null);
+          setSvgError(
+            err instanceof Error ? err.message : "Failed to load layout SVG"
+          );
+        }
+      } finally {
+        if (!cancelled) setSvgLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [svgUrl]);
+
+  // Inject markup once loaded (layout phase so paint effect sees nodes)
+  useLayoutEffect(() => {
+    const host = svgHostRef.current;
+    if (!host) return;
+    if (!svgMarkup) {
+      host.innerHTML = "";
+      return;
+    }
+    host.innerHTML = svgMarkup;
+  }, [svgMarkup]);
+
+  // Paint + bind clicks when plots / filters / selection change
+  useEffect(() => {
+    const host = svgHostRef.current;
+    if (!host || !svgMarkup) return;
+
+    const cleanups: Array<() => void> = [];
+
+    plots.forEach((plot) => {
+      const el = findPlotElement(host, plot);
+      if (!el) return;
+
+      const visible = visibleIds.has(plot.id);
+      const selected = selectedPlotId === plot.id;
+      const status = plot.status;
+
+      paintPlotShape(el, {
+        fill: visible
+          ? PLOT_STATUS_COLOR[status]
+          : "rgba(180,190,210,0.35)",
+        stroke: selected
+          ? "#1E2640"
+          : visible
+            ? "#ffffff"
+            : "rgba(180,190,210,0.5)",
+        strokeWidth: selected ? 3 : 1.5,
+        opacity: visible ? 1 : 0.28,
+        interactive: visible,
+        selected,
+        plotNumber: plot.plotNumber,
+      });
+
+      el.setAttribute("data-plot-id", plot.id);
+      el.setAttribute("role", "button");
+      el.setAttribute(
+        "aria-label",
+        `Plot ${plot.plotNumber}, ${statusLabel(status)}`
+      );
+
+      const onClick = (event: Event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!visibleIds.has(plot.id)) return;
+        onPlotSelectRef.current?.(plotsById.get(plot.id) ?? plot);
+      };
+
+      el.addEventListener("click", onClick);
+      cleanups.push(() => el.removeEventListener("click", onClick));
+    });
+
+    return () => {
+      cleanups.forEach((fn) => fn());
+    };
+  }, [svgMarkup, plots, plotsById, visibleIds, selectedPlotId]);
+
   const layoutPlots = useMemo(() => {
     const cols = 5;
     const cellW = 110;
@@ -94,10 +231,11 @@ export function SVGLayoutViewer({
   }, [plots]);
 
   const svgHeight = Math.max(420, 48 + Math.ceil(plots.length / 5) * 116 + 60);
+  const showInlineSvg = Boolean(svgUrl && svgMarkup && !svgError);
+  const showFallbackGrid = !svgUrl || Boolean(svgError) || (!svgLoading && !svgMarkup);
 
   return (
     <div className={cn("flex flex-col overflow-hidden rounded-card", className)}>
-      {/* Legend strip */}
       <div className="glass-dark flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.08] px-5 py-3.5">
         <div>
           {ventureName ? (
@@ -127,7 +265,6 @@ export function SVGLayoutViewer({
         </div>
       </div>
 
-      {/* Filters + zoom */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/[0.06] bg-[#151B30] px-5 py-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="mr-1 text-[11.5px] font-semibold text-[#5C6B82]">
@@ -241,186 +378,159 @@ export function SVGLayoutViewer({
         </div>
       </div>
 
-      {/* Canvas */}
       <div className="overflow-auto bg-[#0D1220] p-7">
-        {svgUrl ? (
-          <div className="overflow-hidden rounded-[20px] border border-white/15 bg-[#EEF2F8] shadow-[0_8px_60px_rgba(0,0,0,0.5)]">
+        <div className="overflow-hidden rounded-[20px] border border-white/15 bg-[#EEF2F8] shadow-[0_8px_60px_rgba(0,0,0,0.5)]">
+          {svgLoading ? (
+            <div className="flex min-h-[420px] items-center justify-center text-sm text-[#5C6B82]">
+              Loading site layout…
+            </div>
+          ) : null}
+
+          {showInlineSvg ? (
             <div
               style={{
                 transform: `scale(${zoom})`,
                 transformOrigin: "top left",
                 transition: "transform 0.25s cubic-bezier(.4,0,.2,1)",
               }}
+              className="min-h-[420px] w-full p-3"
             >
-              <object
-                data={svgUrl}
-                type="image/svg+xml"
-                className="block min-h-[420px] w-full"
+              <div
+                ref={svgHostRef}
+                className="svg-layout-host w-full [&_svg]:h-auto [&_svg]:w-full"
                 aria-label="Venture site layout"
               />
             </div>
-            {/* Hit list when SVG path binding is not yet wired */}
-            <div className="border-t border-slate-200 bg-white/90 p-3 backdrop-blur-md">
-              <p className="mb-2 font-mono text-[10px] uppercase tracking-wider text-[#5C6B82]">
-                Select plot
-              </p>
-              <ul className="flex max-h-28 flex-wrap gap-2 overflow-y-auto">
-                {plots.map((plot) => {
-                  const hidden = !visibleIds.has(plot.id);
-                  return (
-                    <li key={plot.id}>
-                      <button
-                        type="button"
-                        disabled={hidden}
-                        onClick={() => onPlotSelect?.(plot)}
-                        className={cn(
-                          "rounded-md border px-2 py-1 text-xs font-bold",
-                          selectedPlotId === plot.id
-                            ? "border-transparent text-white"
-                            : "border-slate-200 bg-white text-midnight",
-                          hidden && "opacity-30"
-                        )}
-                        style={
-                          selectedPlotId === plot.id
-                            ? { background: PLOT_STATUS_COLOR[plot.status] }
-                            : undefined
-                        }
-                      >
-                        {plot.plotNumber}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-[20px] border border-white/15 bg-[#EEF2F8] shadow-[0_8px_60px_rgba(0,0,0,0.5)]">
-            {plots.length === 0 ? (
+          ) : null}
+
+          {!svgLoading && showFallbackGrid ? (
+            plots.length === 0 ? (
               <div className="flex min-h-[420px] items-center justify-center text-sm text-[#5C6B82]">
-                No SVG layout uploaded — plot grid will appear when inventory loads.
+                {svgError
+                  ? `Layout unavailable (${svgError}).`
+                  : "No SVG layout uploaded — plot grid will appear when inventory loads."}
               </div>
             ) : (
-              <svg
-                viewBox={`0 0 700 ${svgHeight}`}
-                className="block w-full"
-                style={{
-                  transform: `scale(${zoom})`,
-                  transformOrigin: "top left",
-                  transition: "transform 0.25s cubic-bezier(.4,0,.2,1)",
-                }}
-              >
-                <rect width="700" height={svgHeight} fill="#E8EDF5" />
-                <rect
-                  x="16"
-                  y="16"
-                  width="668"
-                  height={svgHeight - 64}
-                  rx="4"
-                  fill="none"
-                  stroke="#B0BAD0"
-                  strokeWidth="2"
-                  strokeDasharray="8 4"
-                />
-                <rect
-                  x="0"
-                  y={svgHeight - 32}
-                  width="700"
-                  height="32"
-                  fill="#D4E8D0"
-                  opacity="0.8"
-                />
-                <text
-                  x="350"
-                  y={svgHeight - 12}
-                  textAnchor="middle"
-                  fill="#6A9E6A"
-                  fontSize="9"
-                  fontFamily="var(--font-mono)"
-                  fontWeight="600"
+              <>
+                {svgError ? (
+                  <p className="border-b border-slate-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+                    Could not inline SVG ({svgError}). Showing plot grid instead.
+                  </p>
+                ) : null}
+                <svg
+                  viewBox={`0 0 700 ${svgHeight}`}
+                  className="block w-full"
+                  style={{
+                    transform: `scale(${zoom})`,
+                    transformOrigin: "top left",
+                    transition: "transform 0.25s cubic-bezier(.4,0,.2,1)",
+                  }}
                 >
-                  GREEN BELT — COMMON OPEN SPACE
-                </text>
+                  <rect width="700" height={svgHeight} fill="#E8EDF5" />
+                  <rect
+                    x="16"
+                    y="16"
+                    width="668"
+                    height={svgHeight - 64}
+                    rx="4"
+                    fill="none"
+                    stroke="#B0BAD0"
+                    strokeWidth="2"
+                    strokeDasharray="8 4"
+                  />
+                  <rect
+                    x="0"
+                    y={svgHeight - 32}
+                    width="700"
+                    height="32"
+                    fill="#D4E8D0"
+                    opacity="0.8"
+                  />
+                  <text
+                    x="350"
+                    y={svgHeight - 12}
+                    textAnchor="middle"
+                    fill="#6A9E6A"
+                    fontSize="9"
+                    fontFamily="var(--font-mono)"
+                    fontWeight="600"
+                  >
+                    GREEN BELT — COMMON OPEN SPACE
+                  </text>
 
-                {layoutPlots.map(({ plot, x, y, w, h }) => {
-                  const hidden = !visibleIds.has(plot.id);
-                  const selected = selectedPlotId === plot.id;
-                  const status = plot.status;
-                  return (
-                    <g
-                      key={plot.id}
-                      onClick={() => onPlotSelect?.(plot)}
-                      className="cursor-pointer"
-                      style={{ opacity: hidden ? 0.28 : 1 }}
-                    >
-                      <rect
-                        x={x}
-                        y={y}
-                        width={w}
-                        height={h}
-                        rx={5}
-                        fill={
-                          hidden
-                            ? "rgba(180,190,210,0.15)"
-                            : PLOT_STATUS_FILL[status]
-                        }
-                        stroke={
-                          hidden
-                            ? "rgba(180,190,210,0.25)"
-                            : selected
-                              ? PLOT_STATUS_COLOR[status]
-                              : PLOT_STATUS_STROKE[status]
-                        }
-                        strokeWidth={selected ? 2.5 : 1.5}
-                        style={{
-                          filter: selected
-                            ? `drop-shadow(0 0 10px ${PLOT_STATUS_COLOR[status]}80)`
-                            : hidden
-                              ? "none"
-                              : `drop-shadow(0 0 4px ${PLOT_STATUS_COLOR[status]}30)`,
-                        }}
-                      />
-                      <text
-                        x={x + w / 2}
-                        y={y + h / 2 - 4}
-                        textAnchor="middle"
-                        fill={hidden ? "#8090A8" : "#1E2640"}
-                        fontSize="12.5"
-                        fontWeight="800"
-                        fontFamily="var(--font-display)"
-                        style={{ pointerEvents: "none" }}
+                  {layoutPlots.map(({ plot, x, y, w, h }) => {
+                    const hidden = !visibleIds.has(plot.id);
+                    const selected = selectedPlotId === plot.id;
+                    const status = plot.status;
+                    return (
+                      <g
+                        key={plot.id}
+                        onClick={() => onPlotSelect?.(plot)}
+                        className="cursor-pointer"
+                        style={{ opacity: hidden ? 0.28 : 1 }}
                       >
-                        #{plot.plotNumber}
-                      </text>
-                      <text
-                        x={x + w / 2}
-                        y={y + h / 2 + 12}
-                        textAnchor="middle"
-                        fill={hidden ? "#607088" : "rgba(30,38,64,0.65)"}
-                        fontSize="7.5"
-                        fontFamily="var(--font-mono)"
-                        style={{ pointerEvents: "none" }}
-                      >
-                        {num(plot.areaGadhi) > 0
-                          ? `${formatDecimal(num(plot.areaGadhi))} G`
-                          : num(plot.areaSqYards) > 0
-                            ? `${formatDecimal(num(plot.areaSqYards))} yd`
-                            : plot.facing || status}
-                      </text>
-                      <circle
-                        cx={x + w - 10}
-                        cy={y + 10}
-                        r={4}
-                        fill={hidden ? "#8090A8" : PLOT_STATUS_COLOR[status]}
-                        style={{ pointerEvents: "none" }}
-                      />
-                    </g>
-                  );
-                })}
-              </svg>
-            )}
-          </div>
-        )}
+                        <rect
+                          x={x}
+                          y={y}
+                          width={w}
+                          height={h}
+                          rx={5}
+                          fill={
+                            hidden
+                              ? "rgba(180,190,210,0.15)"
+                              : PLOT_STATUS_FILL[status]
+                          }
+                          stroke={
+                            hidden
+                              ? "rgba(180,190,210,0.25)"
+                              : selected
+                                ? PLOT_STATUS_COLOR[status]
+                                : PLOT_STATUS_STROKE[status]
+                          }
+                          strokeWidth={selected ? 2.5 : 1.5}
+                        />
+                        <text
+                          x={x + w / 2}
+                          y={y + h / 2 - 4}
+                          textAnchor="middle"
+                          fill={hidden ? "#8090A8" : "#1E2640"}
+                          fontSize="12.5"
+                          fontWeight="800"
+                          fontFamily="var(--font-display)"
+                          style={{ pointerEvents: "none" }}
+                        >
+                          #{plot.plotNumber}
+                        </text>
+                        <text
+                          x={x + w / 2}
+                          y={y + h / 2 + 12}
+                          textAnchor="middle"
+                          fill={hidden ? "#607088" : "rgba(30,38,64,0.65)"}
+                          fontSize="7.5"
+                          fontFamily="var(--font-mono)"
+                          style={{ pointerEvents: "none" }}
+                        >
+                          {num(plot.areaGadhi) > 0
+                            ? `${formatDecimal(num(plot.areaGadhi))} G`
+                            : num(plot.areaSqYards) > 0
+                              ? `${formatDecimal(num(plot.areaSqYards))} yd`
+                              : plot.facing || status}
+                        </text>
+                        <circle
+                          cx={x + w - 10}
+                          cy={y + 10}
+                          r={4}
+                          fill={hidden ? "#8090A8" : PLOT_STATUS_COLOR[status]}
+                          style={{ pointerEvents: "none" }}
+                        />
+                      </g>
+                    );
+                  })}
+                </svg>
+              </>
+            )
+          ) : null}
+        </div>
 
         <div className="mt-3.5 flex flex-wrap justify-center gap-5 text-[12.5px] text-[#8B97AD]">
           {(["available", "reserved", "sold", "blocked"] as PlotStatus[]).map((s) => (
