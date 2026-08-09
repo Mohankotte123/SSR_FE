@@ -1,21 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
-  BarChart3,
   LayoutDashboard,
   Plus,
-  Grid3x3,
   BookOpen,
   MessageSquare,
   ArrowLeft,
   User,
   Menu,
   X,
+  Palette,
+  LogOut,
+  ClipboardList,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import { logout } from "@/lib/api";
+import { getStoredAdminUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 export interface AdminSidebarProps {
@@ -25,9 +28,11 @@ export interface AdminSidebarProps {
 /**
  * Responsive dark admin navigation.
  */
-export function AdminSidebar({ ventureId }: AdminSidebarProps) {
+export function AdminSidebar(_props: AdminSidebarProps = {}) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const user = getStoredAdminUser();
 
   const links = [
     {
@@ -36,46 +41,41 @@ export function AdminSidebar({ ventureId }: AdminSidebarProps) {
       icon: LayoutDashboard,
     },
     {
-      href: "/admin/dashboard",
-      label: "Ventures List",
+      href: "/admin/ventures",
+      label: "Ventures",
       icon: BookOpen,
-      key: "ventures-list",
+      key: "ventures",
     },
-    ...(ventureId
-      ? [
-          {
-            href: `/admin/ventures/${ventureId}/plots`,
-            label: "Inventory Matrix",
-            icon: Grid3x3,
-          },
-          {
-            href: `/admin/ventures/${ventureId}/analytics`,
-            label: "Venture Analytics",
-            icon: BarChart3,
-          },
-        ]
-      : [
-          {
-            href: "/admin/ventures/1/plots",
-            label: "Inventory Matrix",
-            icon: Grid3x3,
-            key: "inventory-demo",
-          },
-          {
-            href: "/admin/ventures/1/analytics",
-            label: "Venture Analytics",
-            icon: BarChart3,
-            key: "analytics-demo",
-          },
-        ]),
     {
-      href: "/admin/dashboard",
+      href: "/admin/bookings",
+      label: "Bookings",
+      icon: ClipboardList,
+      key: "bookings",
+    },
+    {
+      href: "/admin/leads",
       label: "Leads",
       icon: MessageSquare,
-      badge: "7",
       key: "leads",
     },
+    {
+      href: "/admin/brand",
+      label: "Brand CMS",
+      icon: Palette,
+      key: "brand",
+    },
+    {
+      href: "/admin/ventures/new",
+      label: "Onboard Venture",
+      icon: Plus,
+      key: "onboard",
+    },
   ];
+
+  function handleLogout() {
+    logout();
+    router.replace("/admin/login");
+  }
 
   const nav = (
     <>
@@ -92,9 +92,9 @@ export function AdminSidebar({ ventureId }: AdminSidebarProps) {
           <div className="flex h-8 w-8 items-center justify-center rounded-full border-[1.5px] border-gold/35 bg-gradient-to-br from-gold/30 to-gold/10">
             <User className="h-4 w-4 text-gold" />
           </div>
-          <div>
-            <p className="font-display text-[12.5px] font-bold text-pearl">
-              Super Admin
+          <div className="min-w-0">
+            <p className="truncate font-display text-[12.5px] font-bold text-pearl">
+              {user?.email ?? "Admin"}
             </p>
             <p className="text-[11px] text-[#5C6B82]">Executive access</p>
           </div>
@@ -109,10 +109,20 @@ export function AdminSidebar({ ventureId }: AdminSidebarProps) {
           const Icon = item.icon;
           const key =
             "key" in item && item.key ? item.key : item.href + item.label;
+          const itemKey = "key" in item ? item.key : undefined;
           const active =
-            pathname === item.href ||
-            (item.href !== "/admin/dashboard" &&
-              pathname.startsWith(item.href));
+            itemKey === "ventures"
+              ? pathname === "/admin/ventures" ||
+                pathname === "/admin/ventures/" ||
+                (/^\/admin\/ventures\/[^/]+\/(plots|analytics|edit)/.test(
+                  pathname
+                ) &&
+                  !pathname.startsWith("/admin/ventures/new"))
+              : itemKey === "onboard"
+                ? pathname === "/admin/ventures/new"
+                : pathname === item.href ||
+                  (item.href !== "/admin/dashboard" &&
+                    pathname.startsWith(item.href));
           return (
             <Link
               key={key}
@@ -127,11 +137,6 @@ export function AdminSidebar({ ventureId }: AdminSidebarProps) {
             >
               <Icon className="h-4 w-4 shrink-0" />
               <span className="flex-1">{item.label}</span>
-              {"badge" in item && item.badge ? (
-                <span className="rounded-full bg-gold/20 px-2 py-0.5 font-mono text-[10px] font-bold text-gold">
-                  {item.badge}
-                </span>
-              ) : null}
             </Link>
           );
         })}
@@ -148,6 +153,14 @@ export function AdminSidebar({ ventureId }: AdminSidebarProps) {
           <Plus className="h-3.5 w-3.5" />
           Onboard New Venture
         </Link>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-[11px] border border-white/10 px-3 py-2.5 text-[12.5px] font-semibold text-[#8B97AD] hover:text-plot-sold"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          Sign out
+        </button>
       </nav>
 
       <div className="border-t border-white/[0.06] px-3 py-3.5">
@@ -165,7 +178,6 @@ export function AdminSidebar({ ventureId }: AdminSidebarProps) {
 
   return (
     <>
-      {/* Mobile top bar */}
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-white/[0.07] bg-obsidian/95 px-4 py-3 backdrop-blur-xl lg:hidden">
         <span className="gold-text font-display text-sm font-extrabold">
           Admin Console

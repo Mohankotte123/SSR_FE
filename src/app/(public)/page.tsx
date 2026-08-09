@@ -10,39 +10,15 @@ import {
 import { Hero } from "@/components/public/Hero";
 import { VentureCard } from "@/components/public/VentureCard";
 import { ProprietorSection } from "@/components/public/ProprietorSection";
-import { MOCK_VENTURES } from "@/lib/mock-data";
+import { getBrand, listVentures } from "@/lib/api";
+import { formatNumber } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Premium Land Ventures",
   description: "Browse active real estate ventures and interactive site layouts.",
 };
 
-const STATS = [
-  {
-    num: "40+",
-    label: "Years of Market Legacy",
-    sub: "Est. 1980, Ongole HQ",
-    icon: Landmark,
-  },
-  {
-    num: "25+",
-    label: "Completed Ventures",
-    sub: "Across Andhra Pradesh",
-    icon: Building2,
-  },
-  {
-    num: "1,200+",
-    label: "Happy Plot Owners",
-    sub: "Families who trusted us",
-    icon: ShieldCheck,
-  },
-  {
-    num: "₹150Cr+",
-    label: "Total Land Value Sold",
-    sub: "DTCP & RERA certified",
-    icon: Gem,
-  },
-];
+export const dynamic = "force-dynamic";
 
 const WHY = [
   { icon: ShieldCheck, t: "DTCP & RERA", s: "All ventures legally approved" },
@@ -51,21 +27,51 @@ const WHY = [
   { icon: ScrollText, t: "Clear Title Deeds", s: "Legal due diligence done" },
 ];
 
-export default function LandingPage() {
-  const active = MOCK_VENTURES.filter((v) => v.status === "active");
-  const availablePlots = active.reduce((sum, v) => sum + v.available_plots, 0);
+export default async function LandingPage() {
+  const [ventures, brand] = await Promise.all([listVentures(), getBrand()]);
+  const availablePlots = ventures.reduce(
+    (sum, v) => sum + (v.availablePlots ?? 0),
+    0
+  );
+
+  const stats = [
+    {
+      num: `${brand.legacyYears}+`,
+      label: "Years of Market Legacy",
+      sub: "Est. 1980, Ongole HQ",
+      icon: Landmark,
+    },
+    {
+      num: `${brand.completedProjectsCount}+`,
+      label: "Completed Ventures",
+      sub: "Across Andhra Pradesh",
+      icon: Building2,
+    },
+    {
+      num: `${formatNumber(brand.happyCustomersCount)}+`,
+      label: "Happy Plot Owners",
+      sub: "Families who trusted us",
+      icon: ShieldCheck,
+    },
+    {
+      num: "₹150Cr+",
+      label: "Total Land Value Sold",
+      sub: "DTCP & RERA certified",
+      icon: Gem,
+    },
+  ];
 
   return (
     <>
-      <Hero activeVentures={active.length} availablePlots={availablePlots} />
+      <Hero activeVentures={ventures.length} availablePlots={availablePlots} />
 
       <section className="relative z-10 -mt-2 px-4 sm:px-6 lg:px-10">
         <div className="glass mx-auto grid max-w-[1120px] grid-cols-2 overflow-hidden rounded-2xl border-t border-gold/15 shadow-[0_-4px_60px_rgba(0,0,0,0.45)] sm:rounded-[22px] md:grid-cols-4">
-          {STATS.map((s, i) => {
+          {stats.map((s, i) => {
             const Icon = s.icon;
             return (
               <div
-                key={s.num}
+                key={s.label}
                 className={`flex flex-col gap-1.5 px-4 py-6 sm:px-6 sm:py-9 lg:px-8 ${
                   i < 3 ? "md:border-r md:border-white/[0.07]" : ""
                 } ${i % 2 === 0 ? "border-r border-white/[0.07] md:border-r-0" : ""} ${
@@ -102,15 +108,21 @@ export default function LandingPage() {
             </p>
           </div>
           <p className="w-fit rounded-xl border border-gold/20 bg-gold/10 px-4 py-2 font-display text-xs font-bold text-gold sm:px-6 sm:py-2.5 sm:text-[13px]">
-            {active.length} live ventures
+            {ventures.length} live ventures
           </p>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
-          {active.map((venture) => (
-            <VentureCard key={venture.id} venture={venture} />
-          ))}
-        </div>
+        {ventures.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-white/15 bg-midnight/40 px-6 py-12 text-center text-sm text-[#8B97AD]">
+            No ventures published yet. Check back soon.
+          </p>
+        ) : (
+          <div className="grid gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
+            {ventures.map((venture) => (
+              <VentureCard key={venture.id} venture={venture} />
+            ))}
+          </div>
+        )}
       </section>
 
       <section
@@ -158,7 +170,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <ProprietorSection />
+      <ProprietorSection
+        bio={
+          brand.proprietorMessage ||
+          "Guiding Sri Sai Real Estates with a commitment to transparent dealings."
+        }
+      />
     </>
   );
 }

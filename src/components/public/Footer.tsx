@@ -1,15 +1,24 @@
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
+import type { BrandSettings } from "@/types/database";
 
 export interface FooterProps {
   companyName?: string;
+  brand?: BrandSettings | null;
 }
 
 /**
- * Responsive public footer.
+ * Responsive public footer — contact from brand CMS when available.
  */
-export function Footer({ companyName = "Sri Sai Real Estates" }: FooterProps) {
+export function Footer({
+  companyName = "Sri Sai Real Estates",
+  brand,
+}: FooterProps) {
   const year = new Date().getFullYear();
+  const phone = brand?.contactPhone || "+91 98765 43210";
+  const email = brand?.contactEmail || "info@srisairealestates.in";
+  const address = brand?.officeAddress || "Ongole, Andhra Pradesh";
+  const telHref = `tel:${phone.replace(/[^\d+]/g, "")}`;
 
   return (
     <footer
@@ -22,7 +31,8 @@ export function Footer({ companyName = "Sri Sai Real Estates" }: FooterProps) {
             {companyName}
           </div>
           <p className="mt-1 text-xs text-[#5C6B82]">
-            © {year} {companyName}. All rights reserved. Est. 1980, Ongole.
+            © {year} {companyName}. All rights reserved.
+            {brand?.legacyYears ? ` Est. legacy ${brand.legacyYears}+ years.` : ""}
           </p>
           <p className="mt-2 text-xs text-[#8B97AD]">
             Proprietor:{" "}
@@ -31,21 +41,21 @@ export function Footer({ companyName = "Sri Sai Real Estates" }: FooterProps) {
         </div>
         <div className="flex flex-col gap-3 text-[13px] text-[#5C6B82] sm:flex-row sm:flex-wrap sm:gap-7">
           <span className="inline-flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5 shrink-0" /> Ongole, Andhra Pradesh
+            <MapPin className="h-3.5 w-3.5 shrink-0" /> {address}
           </span>
           <a
-            href="tel:+919876543210"
+            href={telHref}
             className="inline-flex items-center gap-1.5 hover:text-gold"
           >
-            <Phone className="h-3.5 w-3.5 shrink-0" /> +91 98765 43210
+            <Phone className="h-3.5 w-3.5 shrink-0" /> {phone}
           </a>
           <a
-            href="mailto:info@srisairealestates.in"
+            href={`mailto:${email}`}
             className="inline-flex items-center gap-1.5 hover:text-gold"
           >
-            <Mail className="h-3.5 w-3.5 shrink-0" /> info@srisairealestates.in
+            <Mail className="h-3.5 w-3.5 shrink-0" /> {email}
           </a>
-          <Link href="/admin/dashboard" className="hover:text-gold">
+          <Link href="/admin/login" className="hover:text-gold">
             Admin
           </Link>
         </div>

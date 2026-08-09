@@ -43,15 +43,17 @@ export function whatsappEnquireUrl(opts: {
   plotNumber: string;
   ventureName?: string;
   phone?: string;
+  areaLabel?: string;
 }): string {
-  const phone = (opts.phone || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "919876543210").replace(
-    /\D/g,
-    ""
-  );
+  const phone = (
+    opts.phone ||
+    process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ||
+    "919876543210"
+  ).replace(/\D/g, "");
+  const areaBit = opts.areaLabel ? ` (${opts.areaLabel})` : "";
+  const ventureBit = opts.ventureName ? ` in ${opts.ventureName}` : "";
   const text = encodeURIComponent(
-    `Hi, I'm interested in Plot ${opts.plotNumber}${
-      opts.ventureName ? ` at ${opts.ventureName}` : ""
-    }. Please share availability and next steps.`
+    `Hi, I am interested in Plot #${opts.plotNumber}${areaBit}${ventureBit}. Please share availability and next steps.`
   );
   return `https://wa.me/${phone}?text=${text}`;
 }

@@ -4,28 +4,45 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { formatCurrency, formatNumber, cn } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatDecimal,
+  formatGadhiSqFt,
+  cn,
+  num,
+  plotTotal,
+} from "@/lib/utils";
 import { PLOT_STATUS_COLOR, statusLabel } from "@/lib/plot-styles";
 import type { Plot, PlotStatus } from "@/types/database";
 
 export interface PlotMatrixProps {
   plots: Plot[];
   onSelectPlot?: (plot: Plot) => void;
+  onBlockPlot?: (plot: Plot) => Promise<void> | void;
+  onEditPlot?: (plot: Plot) => void;
 }
 
 /**
  * Tap-friendly plot inventory card grid (Figma PlotInventory).
  */
-export function PlotMatrix({ plots, onSelectPlot }: PlotMatrixProps) {
+export function PlotMatrix({
+  plots,
+  onSelectPlot,
+  onBlockPlot,
+  onEditPlot,
+}: PlotMatrixProps) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<PlotStatus | "all">("all");
+  const [blockingId, setBlockingId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return plots.filter((p) => {
       if (filter !== "all" && p.status !== filter) return false;
       if (
         search &&
-        !`${p.plot_number} ${p.facing ?? ""}`.toLowerCase().includes(search.toLowerCase())
+        !`${p.plotNumber} ${p.facing ?? ""}`
+          .toLowerCase()
+          .includes(search.toLowerCase())
       ) {
         return false;
       }
@@ -38,6 +55,7 @@ export function PlotMatrix({ plots, onSelectPlot }: PlotMatrixProps) {
       available: plots.filter((p) => p.status === "available").length,
       reserved: plots.filter((p) => p.status === "reserved").length,
       sold: plots.filter((p) => p.status === "sold").length,
+      blocked: plots.filter((p) => p.status === "blocked").length,
     }),
     [plots]
   );
@@ -55,10 +73,27 @@ export function PlotMatrix({ plots, onSelectPlot }: PlotMatrixProps) {
       <div className="flex flex-wrap gap-3.5">
         {(
           [
-            { label: "Available", count: counts.available, tone: "success" as const },
-            { label: "Reserved", count: counts.reserved, tone: "warning" as const },
+            {
+              label: "Available",
+              count: counts.available,
+              tone: "success" as const,
+            },
+            {
+              label: "Reserved",
+              count: counts.reserved,
+              tone: "warning" as const,
+            },
             { label: "Sold", count: counts.sold, tone: "danger" as const },
-            { label: "Total Plots", count: plots.length, tone: "gold" as const },
+            {
+              label: "Blocked",
+              count: counts.blocked,
+              tone: "neutral" as const,
+            },
+            {
+              label: "Total Plots",
+              count: plots.length,
+              tone: "gold" as const,
+            },
           ] as const
         ).map((s) => (
           <div
@@ -68,6 +103,7 @@ export function PlotMatrix({ plots, onSelectPlot }: PlotMatrixProps) {
               s.tone === "success" && "status-available",
               s.tone === "warning" && "status-reserved",
               s.tone === "danger" && "status-sold",
+              s.tone === "neutral" && "border-white/10 bg-pearl/5",
               s.tone === "gold" && "border-gold/20 bg-gold/10"
             )}
           >
@@ -97,7 +133,7 @@ export function PlotMatrix({ plots, onSelectPlot }: PlotMatrixProps) {
           />
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {(["all", "available", "reserved", "sold"] as const).map((f) => {
+          {(["all", "available", "reserved", "sold", "blocked"] as const).map((f) => {
             const active = filter === f;
             const col =
               f === "all"
@@ -106,7 +142,9 @@ export function PlotMatrix({ plots, onSelectPlot }: PlotMatrixProps) {
                   ? "#2E9E6B"
                   : f === "reserved"
                     ? "#C4923A"
-                    : "#C45A4A";
+                    : f === "sold"
+                      ? "#C45A4A"
+                      : "#5C6B82";
             return (
               <button
                 key={f}
@@ -139,6 +177,10 @@ export function PlotMatrix({ plots, onSelectPlot }: PlotMatrixProps) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {filtered.map((plot) => {
           const color = PLOT_STATUS_COLOR[plot.status];
+          const total = plotTotal(plot);
+          const gadhi = num(plot.areaGadhi);
+          const rateGadhi = num(plot.pricePerGadhi);
+          const rateSqYd = num(plot.pricePerSqYard);
           return (
             <article
               key={plot.id}
@@ -154,7 +196,7 @@ export function PlotMatrix({ plots, onSelectPlot }: PlotMatrixProps) {
 
               <div className="mb-3.5 flex items-start justify-between gap-2 pt-1">
                 <h3 className="font-display text-[22px] font-extrabold tracking-tight text-pearl">
-                  Plot #{plot.plot_number}
+                  Plot #{plot.plotNumber}
                 </h3>
                 <Badge
                   tone={
@@ -172,22 +214,30 @@ export function PlotMatrix({ plots, onSelectPlot }: PlotMatrixProps) {
                 </Badge>
               </div>
 
+              <p className="mb-3 font-mono text-[12.5px] text-[#8B97AD]">
+                {formatGadhiSqFt(plot)}
+              </p>
+
               <div className="mb-3 grid grid-cols-3 gap-2">
                 {[
                   {
-                    label: "Area",
-                    val:
-                      plot.area_sqft != null
-                        ? `${formatNumber(plot.area_sqft)}`
-                        : "—",
+                    label: "Gadhi",
+                    val: gadhi > 0 ? formatDecimal(gadhi) : "—",
                   },
                   {
-                    label: "Price",
-                    val: formatCurrency(plot.price),
+                    label: "Rate",
+                    val:
+                      rateGadhi > 0
+                        ? formatCurrency(rateGadhi)
+                        : rateSqYd > 0
+                          ? formatCurrency(rateSqYd)
+                          : "—",
                   },
                   {
                     label: "Facing",
-                    val: plot.facing ?? "—",
+                    val: plot.facing
+                      ? String(plot.facing).replace(/_/g, "-")
+                      : "—",
                   },
                 ].map((s) => (
                   <div
@@ -196,6 +246,13 @@ export function PlotMatrix({ plots, onSelectPlot }: PlotMatrixProps) {
                   >
                     <div className="mb-0.5 text-[9.5px] font-bold uppercase tracking-wider text-slate-light">
                       {s.label}
+                      {s.label === "Rate"
+                        ? rateGadhi > 0
+                          ? " /G"
+                          : rateSqYd > 0
+                            ? " /Yd"
+                            : ""
+                        : ""}
                     </div>
                     <div className="truncate font-mono text-[12.5px] text-pearl">
                       {s.val}
@@ -209,27 +266,61 @@ export function PlotMatrix({ plots, onSelectPlot }: PlotMatrixProps) {
                   Plot Value
                 </span>
                 <span className="gold-text font-display text-base font-extrabold">
-                  {plot.price != null
-                    ? `₹${(plot.price / 100000).toFixed(0)}L`
-                    : "—"}
+                  {total > 0 ? `₹${(total / 100000).toFixed(0)}L` : "—"}
                 </span>
               </div>
 
               {plot.status === "available" ? (
-                <Button
-                  className="w-full border border-plot-available/25 bg-plot-available/15 text-plot-available hover:bg-plot-available/25"
-                  onClick={() => onSelectPlot?.(plot)}
-                >
-                  Mark Reserved / Add Booking
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    className="w-full border border-plot-available/25 bg-plot-available/15 text-plot-available hover:bg-plot-available/25"
+                    onClick={() => onSelectPlot?.(plot)}
+                  >
+                    Mark Reserved / Add Booking
+                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={() => onEditPlot?.(plot)}
+                    >
+                      Edit dims
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="flex-1"
+                      disabled={blockingId === plot.id}
+                      onClick={async () => {
+                        if (!onBlockPlot) return;
+                        setBlockingId(plot.id);
+                        try {
+                          await onBlockPlot(plot);
+                        } finally {
+                          setBlockingId(null);
+                        }
+                      }}
+                    >
+                      {blockingId === plot.id ? "Blocking…" : "Block"}
+                    </Button>
+                  </div>
+                </div>
               ) : (
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  onClick={() => onSelectPlot?.(plot)}
-                >
-                  View record →
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => onEditPlot?.(plot)}
+                  >
+                    Edit dims
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
+                    onClick={() => onSelectPlot?.(plot)}
+                  >
+                    View →
+                  </Button>
+                </div>
               )}
             </article>
           );

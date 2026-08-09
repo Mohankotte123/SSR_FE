@@ -5,7 +5,15 @@ import { Lock } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatDecimal,
+  formatGadhiSqFt,
+  formatNumber,
+  num,
+  plotTotal,
+  ratePerGadhiFromSqYard,
+} from "@/lib/utils";
 import type { CreateBookingPayload, Plot } from "@/types/database";
 
 export interface BookingModalProps {
@@ -18,11 +26,11 @@ export interface BookingModalProps {
 
 /**
  * Frosted glass booking modal with advance / total calculations.
+ * Booking API still uses agreedRatePerSqYard × areaSqYards.
  */
 export function BookingModal({
   open,
   plot,
-  ventureId,
   onClose,
   onSubmit,
 }: BookingModalProps) {
@@ -31,23 +39,35 @@ export function BookingModal({
   const [rate, setRate] = useState("");
   const [advance, setAdvance] = useState("");
 
-  const area = plot?.area_sqft ?? 0;
-  const rateNum = Number(rate) || (plot?.price && area ? Math.round(plot.price / area) : 0);
+  const area = plot ? num(plot.areaSqYards) : 0;
+  const gadhi = plot ? num(plot.areaGadhi) : 0;
+  const defaultRate = plot ? num(plot.pricePerSqYard) : 0;
+  const rateNum = Number(rate) || defaultRate;
   const calculatedTotal = useMemo(() => rateNum * area, [rateNum, area]);
+  const equivGadhiRate = useMemo(
+    () => (rateNum > 0 ? ratePerGadhiFromSqYard(rateNum) : 0),
+    [rateNum]
+  );
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!plot) return;
 
     const form = new FormData(e.currentTarget);
+    const advancePaid = advance ? Number(advance) : 0;
+    if (!rateNum || advancePaid < 0) {
+      setError("Enter a valid agreed rate and advance.");
+      return;
+    }
+
     const payload: CreateBookingPayload = {
-      plot_id: plot.id,
-      venture_id: ventureId,
-      customer_name: String(form.get("customer_name") || ""),
-      customer_phone: String(form.get("customer_phone") || ""),
-      customer_email: String(form.get("customer_email") || "") || undefined,
-      amount: advance ? Number(advance) : calculatedTotal || undefined,
+      plotId: plot.id,
+      customerName: String(form.get("customerName") || ""),
+      customerPhone: String(form.get("customerPhone") || ""),
+      agreedRatePerSqYard: rateNum,
+      advancePaid,
       notes: String(form.get("notes") || "") || undefined,
+      bookingDate: new Date().toISOString().slice(0, 10),
     };
 
     try {
@@ -69,7 +89,7 @@ export function BookingModal({
       open={open}
       onClose={onClose}
       subtitle="Booking & Lock"
-      title={plot ? `Lock Plot #${plot.plot_number}` : "Create booking"}
+      title={plot ? `Lock Plot #${plot.plotNumber}` : "Create booking"}
       className="max-w-[540px]"
       footer={
         <div className="flex gap-2.5">
@@ -86,7 +106,7 @@ export function BookingModal({
             form="booking-form"
             variant="gold"
             className="flex-[2.5]"
-            disabled={pending || !plot}
+            disabled={pending || !plot || plot.status !== "available"}
           >
             <Lock className="h-3.5 w-3.5" />
             {pending ? "Saving…" : "Save Booking & Lock Plot"}
@@ -96,32 +116,39 @@ export function BookingModal({
     >
       {!plot ? (
         <p className="text-sm text-[#5C6B82]">No plot selected.</p>
+      ) : plot.status !== "available" ? (
+        <p className="text-sm text-[#5C6B82]">
+          Plot #{plot.plotNumber} is {plot.status} and cannot be booked.
+        </p>
       ) : (
         <form id="booking-form" className="space-y-3.5" onSubmit={handleSubmit}>
           <p className="text-[13px] text-[#5C6B82]">
-            {area ? `${formatNumber(area)} Sq.Ft` : "Area TBD"}
-            {plot.facing ? ` · ${plot.facing} Facing` : ""}
+            {formatGadhiSqFt(plot)}
+            {area > 0 ? ` · ${formatDecimal(area)} Sq. Yd` : ""}
+            {plot.facing
+              ? ` · ${String(plot.facing).replace(/_/g, "-")} Facing`
+              : ""}
           </p>
 
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <Input
-              name="customer_name"
+              name="customerName"
               label="Customer Full Name *"
               required
               placeholder="Legal name"
             />
             <Input
-              name="customer_phone"
+              name="customerPhone"
               label="Phone Number *"
               required
               placeholder="+91 98765 43210"
             />
             <Input
               name="rate"
-              label="Agreed Rate (₹/Sq.Ft)"
+              label="Agreed Rate (₹/Sq. Yd)"
               value={rate}
               onChange={(e) => setRate(e.target.value)}
-              placeholder={rateNum ? String(rateNum) : "15000"}
+              placeholder={defaultRate ? String(defaultRate) : "15000"}
               className="font-mono"
             />
             <Input
@@ -129,17 +156,18 @@ export function BookingModal({
               label="Token Advance Paid (₹)"
               value={advance}
               onChange={(e) => setAdvance(e.target.value)}
-              placeholder="500000"
+              placeholder="50000"
               className="font-mono"
+              required
             />
           </div>
 
-          <Input
-            name="customer_email"
-            label="Email"
-            type="email"
-            placeholder="optional"
-          />
+          {equivGadhiRate > 0 && gadhi > 0 ? (
+            <p className="text-xs text-[#5C6B82]">
+              ≈ {formatCurrency(equivGadhiRate)}/Gadhi ·{" "}
+              {formatDecimal(gadhi)} Gadhi
+            </p>
+          ) : null}
 
           <div className="flex items-center justify-between rounded-[14px] border border-gold/20 bg-gradient-to-br from-gold/15 to-gold/[0.04] px-[18px] py-4">
             <div>
@@ -147,11 +175,11 @@ export function BookingModal({
                 Calculated Total Amount
               </div>
               <div className="text-xs text-[#5C6B82]">
-                {formatNumber(area)} Sq.Ft × {formatCurrency(rateNum)}/Sq.Ft
+                {formatNumber(area)} Sq. Yd × {formatCurrency(rateNum)}/Sq. Yd
               </div>
             </div>
             <div className="gold-text font-display text-2xl font-extrabold tracking-tight">
-              {formatCurrency(calculatedTotal || plot.price)}
+              {formatCurrency(calculatedTotal || plotTotal(plot))}
             </div>
           </div>
 

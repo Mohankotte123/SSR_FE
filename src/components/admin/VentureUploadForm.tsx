@@ -1,22 +1,26 @@
 "use client";
 
 import { useState, type DragEvent, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { FileUp, CheckCircle2, Trash2, Compass } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { createVenture } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 /**
- * SVG venture onboarding form with drag-and-drop (UI-only, no API).
+ * SVG venture onboarding form — POST /api/ventures (multipart).
  */
 export function VentureUploadForm() {
+  const router = useRouter();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [approvalType, setApprovalType] = useState("DTCP");
+  const [cover, setCover] = useState<File | null>(null);
+  const [brochure, setBrochure] = useState<File | null>(null);
 
   function acceptFile(f: File | null) {
     if (!f) return;
@@ -43,15 +47,48 @@ export function VentureUploadForm() {
       return;
     }
 
+    const form = new FormData(formEl);
+    const title = String(form.get("title") || "").trim();
+    const location = String(form.get("location") || "").trim();
+    if (!title || !location) {
+      setError("Title and location are required.");
+      return;
+    }
+
+    const body = new FormData();
+    body.set("title", title);
+    body.set("location", location);
+    body.set("svgFile", file);
+    const description = String(form.get("description") || "").trim();
+    const maps = String(form.get("googleMapsUrl") || "").trim();
+    const youtube = String(form.get("youtubeVideoUrl") || "").trim();
+    const rera = String(form.get("dtcpReraNumber") || "").trim();
+    if (description) body.set("description", description);
+    if (maps) body.set("googleMapsUrl", maps);
+    if (youtube) body.set("youtubeVideoUrl", youtube);
+    if (rera) body.set("dtcpReraNumber", rera);
+    if (cover) body.set("coverImage", cover);
+    if (brochure) body.set("brochure", brochure);
+
     setPending(true);
     setError(null);
     setMessage(null);
-    // Static UI demo — no backend call
-    await new Promise((r) => setTimeout(r, 600));
-    setMessage(
-      `Demo only: “${String(new FormData(formEl).get("name") || "Venture")}” would be published here. API wiring comes later.`
-    );
-    setPending(false);
+    try {
+      const result = await createVenture(body);
+      setMessage(
+        `Published “${result.venture.title}” with ${result.plots.length} plots.`
+      );
+      router.push(`/admin/ventures/${result.venture.slug}/plots`);
+      router.refresh();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to publish venture (admin auth may be required)"
+      );
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -82,57 +119,59 @@ export function VentureUploadForm() {
             </h3>
             <div className="space-y-4">
               <Input
-                name="name"
+                name="title"
                 label="Venture Title *"
                 required
                 placeholder="e.g. Grand Palms Phase III"
               />
               <Input
-                name="slug"
-                label="URL slug *"
-                required
-                placeholder="greenfield-heights"
-                hint="Lowercase, hyphenated. Used in /ventures/[slug]."
-              />
-              <Input
                 name="location"
                 label="Location / Address *"
+                required
                 placeholder="e.g. Ongole Bypass, Prakasam Dist."
               />
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.07em] text-[#5C6B82]">
-                    Approval Type *
-                  </p>
-                  <div className="flex gap-1.5">
-                    {["DTCP", "RERA", "Both"].map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setApprovalType(t)}
-                        className={cn(
-                          "flex-1 rounded-[9px] py-2.5 font-display text-xs font-bold transition",
-                          approvalType === t
-                            ? "border border-gold/35 bg-gold/20 text-gold"
-                            : "border border-white/[0.08] bg-obsidian/40 text-[#5C6B82]"
-                        )}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <Input
-                  name="approval_number"
-                  label="Approval Number"
-                  placeholder="e.g. 1042/2024"
-                />
-              </div>
               <Input
                 name="description"
                 label="Description"
-                placeholder="Short overview"
+                placeholder="Short venture overview"
               />
+              <Input
+                name="dtcpReraNumber"
+                label="DTCP / RERA Number"
+                placeholder="e.g. RERA-TEST-001"
+              />
+              <Input
+                name="googleMapsUrl"
+                label="Google Maps URL"
+                placeholder="https://maps.google.com/…"
+              />
+              <Input
+                name="youtubeVideoUrl"
+                label="YouTube Video URL"
+                placeholder="https://youtube.com/…"
+              />
+              <div>
+                <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.07em] text-[#5C6B82]">
+                  Cover image
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setCover(e.target.files?.[0] ?? null)}
+                  className="text-sm text-[#8B97AD]"
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-[11px] font-bold uppercase tracking-[0.07em] text-[#5C6B82]">
+                  Brochure PDF
+                </label>
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={(e) => setBrochure(e.target.files?.[0] ?? null)}
+                  className="text-sm text-[#8B97AD]"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -147,7 +186,11 @@ export function VentureUploadForm() {
               <code className="rounded bg-gold/10 px-1.5 py-0.5 font-mono text-xs text-gold">
                 plot-*
               </code>{" "}
-              IDs.
+              IDs and optional{" "}
+              <code className="rounded bg-gold/10 px-1.5 py-0.5 font-mono text-xs text-gold">
+                data-east|west|north|south
+              </code>{" "}
+              dimensions.
             </p>
 
             <div
@@ -226,7 +269,9 @@ export function VentureUploadForm() {
             {[
               "Export SVG from AutoCAD, QGIS, or any CAD tool",
               'Name each plot path with id="plot-101", "plot-102" etc.',
-              "System reads polygon shapes and assigns inventory rows",
+              'Add side dims: data-east="32\'-8" data-west="30\'-1" data-north="45\'" data-south="43\'"',
+              "Areas auto-compute as Sq. Ft, Gadhi (÷72), and Sq. Yards (÷9)",
+              "Missing dims default to 30′×60′ (1,800 Sq. Ft / 25 Gadhi)",
               "Road labels and park areas are ignored automatically",
             ].map((tip, i) => (
               <div
@@ -239,6 +284,11 @@ export function VentureUploadForm() {
                 {tip}
               </div>
             ))}
+            <pre className="mt-3 overflow-x-auto rounded-xl border border-white/10 bg-obsidian/50 px-3.5 py-3 font-mono text-[11px] leading-relaxed text-[#8B97AD]">
+              {`<rect id="plot-201"
+  data-east="32'-8" data-west="30'-1"
+  data-north="45'" data-south="43'" />`}
+            </pre>
           </div>
 
           {error ? <p className="text-sm text-plot-sold">{error}</p> : null}
@@ -261,7 +311,12 @@ export function VentureUploadForm() {
             <p className="text-center text-xs text-slate-light">
               Upload SVG blueprint to enable publishing
             </p>
-          ) : null}
+          ) : (
+            <p className="text-center text-xs text-slate-light">
+              Requires admin Bearer token (
+              <code className="text-gold/80">NEXT_PUBLIC_ADMIN_TOKEN</code>)
+            </p>
+          )}
         </div>
       </div>
     </form>

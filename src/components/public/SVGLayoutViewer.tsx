@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Minus, Plus, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-import { cn } from "@/lib/utils";
+import { cn, formatDecimal, num } from "@/lib/utils";
 import {
   PLOT_STATUS_COLOR,
   PLOT_STATUS_FILL,
@@ -121,6 +121,9 @@ export function SVGLayoutViewer({
           <Badge tone="danger" dot>
             Sold: {counts.sold}
           </Badge>
+          <Badge tone="neutral" dot>
+            Blocked: {counts.blocked}
+          </Badge>
         </div>
       </div>
 
@@ -130,7 +133,7 @@ export function SVGLayoutViewer({
           <span className="mr-1 text-[11.5px] font-semibold text-[#5C6B82]">
             STATUS
           </span>
-          {(["all", "available", "reserved", "sold"] as const).map((s) => {
+          {(["all", "available", "reserved", "sold", "blocked"] as const).map((s) => {
             const active = statusFilter === s;
             const color =
               s === "all"
@@ -139,7 +142,9 @@ export function SVGLayoutViewer({
                   ? "#2E9E6B"
                   : s === "reserved"
                     ? "#C4923A"
-                    : "#C45A4A";
+                    : s === "sold"
+                      ? "#C45A4A"
+                      : "#5C6B82";
             return (
               <button
                 key={s}
@@ -281,7 +286,7 @@ export function SVGLayoutViewer({
                             : undefined
                         }
                       >
-                        {plot.plot_number}
+                        {plot.plotNumber}
                       </button>
                     </li>
                   );
@@ -385,7 +390,7 @@ export function SVGLayoutViewer({
                         fontFamily="var(--font-display)"
                         style={{ pointerEvents: "none" }}
                       >
-                        #{plot.plot_number}
+                        #{plot.plotNumber}
                       </text>
                       <text
                         x={x + w / 2}
@@ -396,9 +401,11 @@ export function SVGLayoutViewer({
                         fontFamily="var(--font-mono)"
                         style={{ pointerEvents: "none" }}
                       >
-                        {plot.area_sqft != null
-                          ? `${plot.area_sqft} sq.ft`
-                          : plot.facing || status}
+                        {num(plot.areaGadhi) > 0
+                          ? `${formatDecimal(num(plot.areaGadhi))} G`
+                          : num(plot.areaSqYards) > 0
+                            ? `${formatDecimal(num(plot.areaSqYards))} yd`
+                            : plot.facing || status}
                       </text>
                       <circle
                         cx={x + w - 10}
@@ -416,7 +423,7 @@ export function SVGLayoutViewer({
         )}
 
         <div className="mt-3.5 flex flex-wrap justify-center gap-5 text-[12.5px] text-[#8B97AD]">
-          {(["available", "reserved", "sold"] as PlotStatus[]).map((s) => (
+          {(["available", "reserved", "sold", "blocked"] as PlotStatus[]).map((s) => (
             <div key={s} className="flex items-center gap-2 font-semibold capitalize">
               <span
                 className="h-3.5 w-3.5 rounded-[3px]"

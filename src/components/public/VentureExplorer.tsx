@@ -18,18 +18,20 @@ export function VentureExplorer({ venture }: VentureExplorerProps) {
   return (
     <>
       <SVGLayoutViewer
-        svgUrl={venture.svg_url}
+        svgUrl={venture.svgLayoutUrl}
         plots={venture.plots}
         selectedPlotId={selected?.id ?? null}
         onPlotSelect={setSelected}
-        ventureName={venture.name}
+        ventureName={venture.title}
         ventureLocation={venture.location}
       />
       <PlotDetailDrawer
         open={!!selected}
         plot={selected}
         onClose={() => setSelected(null)}
-        ventureName={venture.name}
+        ventureId={venture.id}
+        ventureName={venture.title}
+        brochurePdfUrl={venture.brochurePdfUrl}
       />
     </>
   );

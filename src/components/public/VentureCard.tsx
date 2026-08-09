@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { MapPin, IndianRupee, Ruler, Route } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-import { cn, formatCurrency, formatNumber } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import type { Venture } from "@/types/database";
 
 export interface VentureCardProps {
@@ -16,16 +16,13 @@ export interface VentureCardProps {
  */
 export function VentureCard({ venture }: VentureCardProps) {
   const [hovered, setHovered] = useState(false);
-  const meta = (venture as Venture & { metadata?: Record<string, unknown> })
-    .metadata;
-  const approval =
-    (meta?.approval as string | undefined) ||
-    (venture.status === "active" ? "DTCP Approved" : "Draft");
-  const phase = (meta?.phase as string | undefined) || "Active Portfolio";
-  const priceHint = (meta?.starting_price as number | undefined) ?? null;
+  const available = venture.availablePlots ?? 0;
+  const approval = venture.dtcpReraNumber
+    ? `DTCP / RERA · ${venture.dtcpReraNumber}`
+    : "Approved layout";
 
   const availabilityTone =
-    venture.available_plots > 0 ? ("success" as const) : ("warning" as const);
+    available > 0 ? ("success" as const) : ("warning" as const);
 
   return (
     <article
@@ -38,13 +35,16 @@ export function VentureCard({ venture }: VentureCardProps) {
       onMouseLeave={() => setHovered(false)}
     >
       <div className="relative h-[230px] overflow-hidden bg-midnight">
-        {venture.cover_image_url ? (
+        {venture.coverImageUrl || venture.svgLayoutUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={venture.cover_image_url}
-            alt={venture.name}
+            src={venture.coverImageUrl || venture.svgLayoutUrl || ""}
+            alt={`${venture.title} layout`}
             className={cn(
-              "h-full w-full object-cover transition-transform duration-[550ms]",
+              "h-full w-full transition-transform duration-[550ms]",
+              venture.coverImageUrl
+                ? "object-cover"
+                : "object-contain bg-[#EEF2F8] p-4",
               hovered ? "scale-105" : "scale-100"
             )}
           />
@@ -56,11 +56,11 @@ export function VentureCard({ venture }: VentureCardProps) {
         <div className="absolute inset-0 bg-gradient-to-t from-obsidian/80 via-obsidian/15 to-transparent" />
         <div className="absolute left-4 top-4 flex flex-wrap gap-1.5">
           <Badge tone="neutral">{approval}</Badge>
-          <Badge tone="gold">{venture.status}</Badge>
+          <Badge tone="gold">Live</Badge>
         </div>
         <div className="absolute bottom-4 left-4">
           <span className="font-mono text-[10.5px] tracking-[0.1em] text-gold/75">
-            {phase}
+            Active Portfolio
           </span>
         </div>
       </div>
@@ -69,8 +69,13 @@ export function VentureCard({ venture }: VentureCardProps) {
         <div className="mb-3.5 flex items-start justify-between gap-3">
           <div>
             <h3 className="font-display text-[19px] font-extrabold tracking-tight text-pearl">
-              {venture.name}
+              {venture.title}
             </h3>
+            {venture.description ? (
+              <p className="mt-1 line-clamp-2 text-[12.5px] text-[#8B97AD]">
+                {venture.description}
+              </p>
+            ) : null}
             {venture.location ? (
               <p className="mt-1 flex items-center gap-1.5 text-[12.5px] text-[#8B97AD]">
                 <MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -79,7 +84,7 @@ export function VentureCard({ venture }: VentureCardProps) {
             ) : null}
           </div>
           <Badge tone={availabilityTone} dot>
-            {formatNumber(venture.available_plots)} Available
+            {formatNumber(available)} Available
           </Badge>
         </div>
 
@@ -88,9 +93,7 @@ export function VentureCard({ venture }: VentureCardProps) {
         <ul className="mb-[18px] space-y-1.5 text-[13px] text-[#8B97AD]">
           <li className="flex items-center gap-2">
             <IndianRupee className="h-3.5 w-3.5 text-gold" />
-            {priceHint != null
-              ? `Starting ${formatCurrency(priceHint)} / Sq. Yd`
-              : `${formatNumber(venture.total_plots)} total plots`}
+            {formatNumber(venture.totalPlots)} total plots
           </li>
           <li className="flex items-center gap-2">
             <Route className="h-3.5 w-3.5 text-gold" />
@@ -98,8 +101,8 @@ export function VentureCard({ venture }: VentureCardProps) {
           </li>
           <li className="flex items-center gap-2">
             <Ruler className="h-3.5 w-3.5 text-gold" />
-            {formatNumber(venture.available_plots)} of{" "}
-            {formatNumber(venture.total_plots)} plots open
+            {formatNumber(available)} of {formatNumber(venture.totalPlots)}{" "}
+            plots open
           </li>
         </ul>
 
