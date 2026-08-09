@@ -112,6 +112,8 @@ export interface VentureDetail extends Venture {
   blockedPlots?: number;
 }
 
+export type BookingStatus = "active" | "cancelled";
+
 export interface Booking {
   id: string;
   plotId: string;
@@ -122,15 +124,36 @@ export interface Booking {
   advancePaid: string | number;
   bookingDate: string;
   notes: string | null;
+  status?: BookingStatus;
+  cancelledAt?: string | null;
+  cancelReason?: string | null;
+  forfeitedAdvance?: boolean;
   createdAt: string;
   plot?: {
     id: string;
     plotNumber: string;
     ventureId: string;
     areaSqYards?: string | number;
+    areaGadhi?: string | number;
+    areaSqFt?: string | number;
     status: PlotStatus;
+    facing?: PlotFacing | string | null;
     venture?: { id: string; title: string; slug: string };
   };
+}
+
+export interface UpdateBookingPayload {
+  advancePaid?: number;
+  notes?: string | null;
+  customerName?: string;
+  customerPhone?: string;
+  settleFullPayment?: boolean;
+  markPlotSold?: boolean;
+  cancel?: boolean;
+  /** Required when cancelling a booking whose plot is already sold. */
+  confirmVoidSale?: boolean;
+  cancelReason?: string | null;
+  forfeitedAdvance?: boolean;
 }
 
 export interface Lead {

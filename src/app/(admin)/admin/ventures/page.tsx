@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, BarChart3, Grid3x3, MapPin, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
+import { VentureDeleteButton } from "@/components/admin/VentureDeleteButton";
 import { listVentures } from "@/lib/api";
 import { formatNumber } from "@/lib/utils";
 
@@ -89,6 +90,9 @@ export default async function AdminVenturesPage() {
                   <BarChart3 className="h-3.5 w-3.5" />
                   Analytics
                 </Link>
+              </div>
+              <div className="mt-2">
+                <VentureDeleteButton idOrSlug={v.slug} title={v.title} />
               </div>
             </li>
           ))}

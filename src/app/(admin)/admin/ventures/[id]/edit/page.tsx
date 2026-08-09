@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { VentureEditForm } from "@/components/admin/VentureEditForm";
+import { VentureDeleteButton } from "@/components/admin/VentureDeleteButton";
 import { getVentureBySlug } from "@/lib/api";
 import { notFound } from "next/navigation";
 
@@ -48,6 +49,16 @@ export default async function VentureEditPage({ params }: EditPageProps) {
         </p>
       </div>
       <VentureEditForm venture={venture} />
+      <div className="rounded-2xl border border-plot-sold/20 bg-plot-sold/5 p-5">
+        <h2 className="mb-2 font-display text-sm font-bold text-plot-sold">
+          Danger zone
+        </h2>
+        <p className="mb-3 text-xs text-[#8B97AD]">
+          Permanently delete this venture, all plots, bookings, leads, and
+          uploaded layout media.
+        </p>
+        <VentureDeleteButton idOrSlug={venture.slug} title={venture.title} />
+      </div>
     </div>
   );
 }

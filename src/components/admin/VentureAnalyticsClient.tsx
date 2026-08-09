@@ -145,9 +145,18 @@ export function VentureAnalyticsClient({
           trend="up"
         />
         <MetricsCard
+          label="Pending receivables"
+          value={formatCurrency(num(analytics.financials.pendingReceivables))}
+          hint={`Advances ${formatCurrency(num(analytics.financials.advanceCollected))} · sold does not clear pending until balance settled`}
+          accent="amber"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricsCard
           label="Leads"
           value={analytics.leads.total}
-          hint={`${formatNumber(by.reserved)} reserved · advances ${formatCurrency(num(analytics.financials.advanceCollected))}`}
+          hint={`${formatNumber(by.reserved)} reserved · ${formatNumber(by.sold)} sold`}
           accent="amber"
         />
       </div>

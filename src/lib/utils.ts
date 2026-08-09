@@ -95,3 +95,67 @@ export function formatNumber(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value)) return "—";
   return new Intl.NumberFormat("en-IN").format(value);
 }
+
+/** Default agreement window used when notes say “within 6 months”. */
+export const DEFAULT_BALANCE_DUE_DAYS = 180;
+
+export function bookingDueDate(
+  bookingDate: string,
+  dueDays = DEFAULT_BALANCE_DUE_DAYS
+): Date {
+  const d = new Date(bookingDate);
+  if (Number.isNaN(d.getTime())) return new Date();
+  const due = new Date(d);
+  due.setDate(due.getDate() + dueDays);
+  return due;
+}
+
+export function bookingTimeLeft(bookingDate: string): {
+  dueDate: Date;
+  daysLeft: number;
+  overdue: boolean;
+  label: string;
+} {
+  const dueDate = bookingDueDate(bookingDate);
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const end = new Date(
+    dueDate.getFullYear(),
+    dueDate.getMonth(),
+    dueDate.getDate()
+  );
+  const daysLeft = Math.round(
+    (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const overdue = daysLeft < 0;
+  const label = overdue
+    ? `Overdue by ${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? "" : "s"}`
+    : daysLeft === 0
+      ? "Due today"
+      : `${daysLeft} day${daysLeft === 1 ? "" : "s"} left`;
+  return { dueDate, daysLeft, overdue, label };
+}
+
+export function formatDate(value: string | Date | null | undefined): string {
+  if (!value) return "—";
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(d);
+}
+
+export function formatDateTime(value: string | Date | null | undefined): string {
+  if (!value) return "—";
+  const d = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
+}

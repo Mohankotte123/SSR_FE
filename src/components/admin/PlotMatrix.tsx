@@ -7,12 +7,15 @@ import { Button } from "@/components/ui/Button";
 import {
   formatCurrency,
   formatDecimal,
-  formatGadhiSqFt,
   cn,
   num,
   plotTotal,
 } from "@/lib/utils";
-import { PLOT_STATUS_COLOR, statusLabel } from "@/lib/plot-styles";
+import {
+  PLOT_STATUS_COLOR,
+  formatFacingLabel,
+  statusLabel,
+} from "@/lib/plot-styles";
 import type { Plot, PlotStatus } from "@/types/database";
 
 export interface PlotMatrixProps {
@@ -179,8 +182,11 @@ export function PlotMatrix({
           const color = PLOT_STATUS_COLOR[plot.status];
           const total = plotTotal(plot);
           const gadhi = num(plot.areaGadhi);
+          const sqFt = num(plot.areaSqFt);
           const rateGadhi = num(plot.pricePerGadhi);
           const rateSqYd = num(plot.pricePerSqYard);
+          const facingLabel = formatFacingLabel(plot.facing);
+
           return (
             <article
               key={plot.id}
@@ -194,9 +200,9 @@ export function PlotMatrix({
                 }}
               />
 
-              <div className="mb-3.5 flex items-start justify-between gap-2 pt-1">
+              <div className="mb-3 flex items-start justify-between gap-2 pt-1">
                 <h3 className="font-display text-[22px] font-extrabold tracking-tight text-pearl">
-                  Plot #{plot.plotNumber}
+                  #{plot.plotNumber}
                 </h3>
                 <Badge
                   tone={
@@ -214,51 +220,51 @@ export function PlotMatrix({
                 </Badge>
               </div>
 
-              <p className="mb-3 font-mono text-[12.5px] text-[#8B97AD]">
-                {formatGadhiSqFt(plot)}
-              </p>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {facingLabel ? (
+                  <span className="inline-flex items-center rounded-lg border border-white/10 bg-obsidian/50 px-2.5 py-1 text-[11.5px] font-semibold text-pearl">
+                    🧭 {facingLabel}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-lg border border-dashed border-white/10 bg-obsidian/30 px-2.5 py-1 text-[11.5px] text-[#5C6B82]">
+                    🧭 Facing unset
+                  </span>
+                )}
+                {gadhi > 0 ? (
+                  <span className="inline-flex items-center rounded-lg border border-gold/20 bg-gold/10 px-2.5 py-1 font-mono text-[11.5px] font-semibold text-gold">
+                    {formatDecimal(gadhi)} Gadhi
+                  </span>
+                ) : null}
+                {sqFt > 0 ? (
+                  <span className="inline-flex items-center rounded-lg border border-white/10 bg-pearl/5 px-2.5 py-1 font-mono text-[11.5px] text-[#8B97AD]">
+                    {formatDecimal(sqFt, 0)} Sq. Ft.
+                  </span>
+                ) : null}
+              </div>
 
-              <div className="mb-3 grid grid-cols-3 gap-2">
-                {[
-                  {
-                    label: "Gadhi",
-                    val: gadhi > 0 ? formatDecimal(gadhi) : "—",
-                  },
-                  {
-                    label: "Rate",
-                    val:
-                      rateGadhi > 0
-                        ? formatCurrency(rateGadhi)
-                        : rateSqYd > 0
-                          ? formatCurrency(rateSqYd)
-                          : "—",
-                  },
-                  {
-                    label: "Facing",
-                    val: plot.facing
-                      ? String(plot.facing).replace(/_/g, "-")
-                      : "—",
-                  },
-                ].map((s) => (
-                  <div
-                    key={s.label}
-                    className="rounded-[9px] bg-obsidian/35 px-2.5 py-2"
-                  >
-                    <div className="mb-0.5 text-[9.5px] font-bold uppercase tracking-wider text-slate-light">
-                      {s.label}
-                      {s.label === "Rate"
-                        ? rateGadhi > 0
-                          ? " /G"
-                          : rateSqYd > 0
-                            ? " /Yd"
-                            : ""
-                        : ""}
-                    </div>
-                    <div className="truncate font-mono text-[12.5px] text-pearl">
-                      {s.val}
-                    </div>
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <div className="rounded-[9px] bg-obsidian/35 px-2.5 py-2">
+                  <div className="mb-0.5 text-[9.5px] font-bold uppercase tracking-wider text-slate-light">
+                    Rate {rateGadhi > 0 ? "/Gadhi" : "/Sq.Yd"}
                   </div>
-                ))}
+                  <div className="truncate font-mono text-[12.5px] text-pearl">
+                    {rateGadhi > 0
+                      ? formatCurrency(rateGadhi)
+                      : rateSqYd > 0
+                        ? formatCurrency(rateSqYd)
+                        : "—"}
+                  </div>
+                </div>
+                <div className="rounded-[9px] bg-obsidian/35 px-2.5 py-2">
+                  <div className="mb-0.5 text-[9.5px] font-bold uppercase tracking-wider text-slate-light">
+                    Road
+                  </div>
+                  <div className="truncate font-mono text-[12.5px] text-pearl">
+                    {plot.roadWidthFt != null && plot.roadWidthFt !== ""
+                      ? `${formatDecimal(num(plot.roadWidthFt), 0)} ft`
+                      : "—"}
+                  </div>
+                </div>
               </div>
 
               <div className="mb-3 flex items-center justify-between rounded-[10px] border border-gold/15 bg-gradient-to-br from-gold/[0.08] to-gold/[0.02] px-3 py-2.5">
@@ -270,21 +276,22 @@ export function PlotMatrix({
                 </span>
               </div>
 
-              {plot.status === "available" ? (
-                <div className="flex flex-col gap-2">
-                  <Button
-                    className="w-full border border-plot-available/25 bg-plot-available/15 text-plot-available hover:bg-plot-available/25"
-                    onClick={() => onSelectPlot?.(plot)}
-                  >
-                    Mark Reserved / Add Booking
-                  </Button>
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => onEditPlot?.(plot)}
+                >
+                  ✏️ Edit Details
+                </Button>
+
+                {plot.status === "available" ? (
                   <div className="flex gap-2">
                     <Button
-                      variant="secondary"
-                      className="flex-1"
-                      onClick={() => onEditPlot?.(plot)}
+                      className="flex-[1.4] border border-plot-available/25 bg-plot-available/15 text-plot-available hover:bg-plot-available/25"
+                      onClick={() => onSelectPlot?.(plot)}
                     >
-                      Edit dims
+                      Add Booking
                     </Button>
                     <Button
                       variant="secondary"
@@ -300,28 +307,23 @@ export function PlotMatrix({
                         }
                       }}
                     >
-                      {blockingId === plot.id ? "Blocking…" : "Block"}
+                      {blockingId === plot.id ? "…" : "Block"}
                     </Button>
                   </div>
-                </div>
-              ) : (
-                <div className="flex gap-2">
+                ) : plot.status === "reserved" || plot.status === "sold" ? (
                   <Button
                     variant="secondary"
-                    className="flex-1"
-                    onClick={() => onEditPlot?.(plot)}
-                  >
-                    Edit dims
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="flex-1"
+                    className="w-full"
                     onClick={() => onSelectPlot?.(plot)}
                   >
-                    View →
+                    View booking record →
                   </Button>
-                </div>
-              )}
+                ) : (
+                  <p className="rounded-[10px] border border-white/10 bg-obsidian/30 px-3 py-2.5 text-center text-[12px] text-[#5C6B82]">
+                    Blocked — use Edit Details to change status
+                  </p>
+                )}
+              </div>
             </article>
           );
         })}

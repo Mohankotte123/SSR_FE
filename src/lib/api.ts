@@ -17,6 +17,7 @@ import type {
   LoginResult,
   Paginated,
   Plot,
+  UpdateBookingPayload,
   UpdateBrandPayload,
   UpdatePlotPayload,
   Venture,
@@ -279,6 +280,7 @@ export async function createBooking(
 
 export async function listBookings(opts?: {
   search?: string;
+  plotId?: string;
   page?: number;
   limit?: number;
   token?: string;
@@ -286,10 +288,39 @@ export async function listBookings(opts?: {
   return api<Paginated<Booking>>(
     `/api/bookings${qs({
       search: opts?.search,
+      plotId: opts?.plotId,
       page: opts?.page,
       limit: opts?.limit,
     })}`,
     { token: opts?.token, soft: true }
+  );
+}
+
+/** Latest booking for a plot (reserved / sold inventory record). */
+export async function getBookingForPlot(
+  plotId: string,
+  token?: string
+): Promise<Booking | null> {
+  const result = await listBookings({ plotId, limit: 1, page: 1, token });
+  if (!result.success) throw new ApiError(result.error, 400);
+  return result.data.items[0] ?? null;
+}
+
+export async function updateBooking(
+  bookingId: string,
+  body: UpdateBookingPayload,
+  token?: string
+): Promise<{ booking: Booking; plot: Plot }> {
+  return unwrap(
+    await api<{ booking: Booking; plot: Plot }>(
+      `/api/bookings/${encodeURIComponent(bookingId)}`,
+      {
+        method: "PATCH",
+        token,
+        body: JSON.stringify(body),
+        soft: true,
+      }
+    )
   );
 }
 
@@ -348,6 +379,24 @@ export async function updateVenture(
       method: "PATCH",
       token,
       body: form,
+      soft: true,
+    })
+  );
+}
+
+export async function deleteVenture(
+  idOrSlug: string,
+  token?: string
+): Promise<{ deleted: boolean; id: string; slug: string; plotsRemoved: number }> {
+  return unwrap(
+    await api<{
+      deleted: boolean;
+      id: string;
+      slug: string;
+      plotsRemoved: number;
+    }>(`/api/ventures/${encodeURIComponent(idOrSlug)}`, {
+      method: "DELETE",
+      token,
       soft: true,
     })
   );

@@ -2,10 +2,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Search } from "lucide-react";
+import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { listBookings } from "@/lib/api";
 import { formatCurrency, formatNumber, num } from "@/lib/utils";
-import type { Booking, Pagination } from "@/types/database";
+import { statusLabel } from "@/lib/plot-styles";
+import type { Booking, Pagination, PlotStatus } from "@/types/database";
+
+function toneForPlotStatus(
+  status: PlotStatus | undefined
+): "success" | "warning" | "danger" | "neutral" {
+  if (status === "available") return "success";
+  if (status === "reserved") return "warning";
+  if (status === "sold") return "danger";
+  return "neutral";
+}
 
 export function BookingsTable() {
   const [search, setSearch] = useState("");
@@ -19,7 +30,11 @@ export function BookingsTable() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const result = await listBookings({ search: query || undefined, page, limit: 20 });
+    const result = await listBookings({
+      search: query || undefined,
+      page,
+      limit: 20,
+    });
     if (!result.success) {
       setError(result.error);
       setItems([]);
@@ -71,46 +86,70 @@ export function BookingsTable() {
             <tr>
               <th className="px-4 py-3">Customer</th>
               <th className="px-4 py-3">Venture / Plot</th>
+              <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Total</th>
-              <th className="px-4 py-3">Advance</th>
+              <th className="px-4 py-3">Paid</th>
+              <th className="px-4 py-3">Pending</th>
               <th className="px-4 py-3">Date</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-[#5C6B82]">
+                <td colSpan={7} className="px-4 py-8 text-[#5C6B82]">
                   Loading…
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-[#5C6B82]">
-                  No bookings found.
+                <td colSpan={7} className="px-4 py-8 text-[#5C6B82]">
+                  No active bookings found.
                 </td>
               </tr>
             ) : (
-              items.map((b) => (
-                <tr key={b.id} className="border-b border-white/[0.06]">
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-pearl">{b.customerName}</div>
-                    <div className="text-xs text-[#5C6B82]">{b.customerPhone}</div>
-                  </td>
-                  <td className="px-4 py-3 text-[#8B97AD]">
-                    {b.plot?.venture?.title ?? "—"} · Plot #
-                    {b.plot?.plotNumber ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-pearl">
-                    {formatCurrency(num(b.totalAmount))}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-gold">
-                    {formatCurrency(num(b.advancePaid))}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-[#5C6B82]">
-                    {new Date(b.bookingDate).toLocaleDateString("en-IN")}
-                  </td>
-                </tr>
-              ))
+              items.map((b) => {
+                const total = num(b.totalAmount);
+                const paid = num(b.advancePaid);
+                const pendingBal = Math.max(0, total - paid);
+                const plotStatus = b.plot?.status;
+                return (
+                  <tr key={b.id} className="border-b border-white/[0.06]">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-pearl">
+                        {b.customerName}
+                      </div>
+                      <div className="text-xs text-[#5C6B82]">
+                        {b.customerPhone}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-[#8B97AD]">
+                      {b.plot?.venture?.title ?? "—"} · Plot #
+                      {b.plot?.plotNumber ?? "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      {plotStatus ? (
+                        <Badge tone={toneForPlotStatus(plotStatus)} dot>
+                          {statusLabel(plotStatus)}
+                        </Badge>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-pearl">
+                      {formatCurrency(total)}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-gold">
+                      {formatCurrency(paid)}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-plot-reserved">
+                      {formatCurrency(pendingBal)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[#5C6B82]">
+                      {new Date(b.bookingDate).toLocaleDateString("en-IN")}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -120,7 +159,7 @@ export function BookingsTable() {
         <div className="flex items-center justify-between text-sm text-[#8B97AD]">
           <span>
             Page {pagination.page} of {pagination.totalPages} ·{" "}
-            {formatNumber(pagination.total)} total
+            {formatNumber(pagination.total)} active
           </span>
           <div className="flex gap-2">
             <Button

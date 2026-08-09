@@ -39,6 +39,30 @@ export function statusLabel(status: PlotStatus): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
+/** e.g. "East Facing" or "North-West Corner" */
+export function formatFacingLabel(
+  facing: string | null | undefined
+): string | null {
+  if (!facing?.trim()) return null;
+  const key = facing.trim().toLowerCase().replace(/-/g, "_");
+  const map: Record<string, string> = {
+    east: "East Facing",
+    west: "West Facing",
+    north: "North Facing",
+    south: "South Facing",
+    north_east: "North-East Corner",
+    north_west: "North-West Corner",
+    south_east: "South-East Corner",
+    south_west: "South-West Corner",
+  };
+  return (
+    map[key] ??
+    `${facing
+      .replace(/_/g, "-")
+      .replace(/\b\w/g, (c) => c.toUpperCase())} Facing`
+  );
+}
+
 export function whatsappEnquireUrl(opts: {
   plotNumber: string;
   ventureName?: string;
