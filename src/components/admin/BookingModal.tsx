@@ -141,7 +141,7 @@ export function BookingModal({
               name="customerPhone"
               label="Phone Number *"
               required
-              placeholder="+91 98765 43210"
+              placeholder="+91 …"
             />
             <Input
               name="rate"

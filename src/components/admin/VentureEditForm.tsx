@@ -28,8 +28,7 @@ export function VentureEditForm({ venture }: { venture: Venture }) {
       "dtcpReraNumber",
     ] as const;
     fields.forEach((key) => {
-      const v = String(form.get(key) || "").trim();
-      if (v) body.set(key, v);
+      body.set(key, String(form.get(key) || "").trim());
     });
     if (cover) body.set("coverImage", cover);
     if (brochure) body.set("brochure", brochure);
@@ -77,7 +76,8 @@ export function VentureEditForm({ venture }: { venture: Venture }) {
       />
       <Input
         name="googleMapsUrl"
-        label="Google Maps URL"
+        label="Google Maps coordinates"
+        placeholder="15.524404, 80.024833"
         defaultValue={venture.googleMapsUrl ?? ""}
       />
       <Input

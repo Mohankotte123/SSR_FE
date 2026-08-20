@@ -5,6 +5,7 @@ import { ArrowLeft, MapPin, PlayCircle } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { VentureExplorer } from "@/components/public/VentureExplorer";
 import { getVentureBySlug } from "@/lib/api";
+import { toGoogleMapsOpenUrl } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,10 @@ export default async function VentureLayoutPage({ params }: VenturePageProps) {
         <div className="flex flex-wrap items-center gap-3">
           {venture.googleMapsUrl ? (
             <a
-              href={venture.googleMapsUrl}
+              href={toGoogleMapsOpenUrl(
+                venture.googleMapsUrl,
+                venture.location
+              )}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-sm text-[#8B97AD] hover:text-gold"

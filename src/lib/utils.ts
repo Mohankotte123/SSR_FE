@@ -159,3 +159,95 @@ export function formatDateTime(value: string | Date | null | undefined): string 
     minute: "2-digit",
   }).format(d);
 }
+
+/**
+ * Parse "lat, lng" (e.g. 15.524404, 80.024833). Returns null if not coordinates.
+ */
+export function parseLatLng(
+  value: string | null | undefined
+): { lat: string; lng: string } | null {
+  const trimmed = (value ?? "").trim();
+  const m = trimmed.match(
+    /^(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)$/
+  );
+  if (!m) return null;
+  const lat = Number(m[1]);
+  const lng = Number(m[2]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat: m[1], lng: m[2] };
+}
+
+/** Open Google Maps in a new tab (supports lat,lng or full maps URL). */
+export function toGoogleMapsOpenUrl(
+  mapsValue: string,
+  fallbackQuery?: string | null
+): string {
+  const trimmed = mapsValue.trim();
+  const coords = parseLatLng(trimmed);
+  if (coords) {
+    return `https://www.google.com/maps?q=${coords.lat},${coords.lng}`;
+  }
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  const q = (fallbackQuery ?? "").trim() || trimmed;
+  return `https://www.google.com/maps?q=${encodeURIComponent(q)}`;
+}
+
+/**
+ * Turn stored Google Maps coords / share URL into an iframe-friendly embed URL.
+ * Preferred admin input: `15.524404, 80.024833`
+ */
+export function toGoogleMapsEmbedUrl(
+  mapsUrl: string,
+  fallbackQuery?: string | null
+): string {
+  const trimmed = mapsUrl.trim();
+  if (!trimmed) {
+    const q = (fallbackQuery ?? "").trim();
+    return q
+      ? `https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=15&output=embed`
+      : "https://maps.google.com/maps?output=embed";
+  }
+
+  const bare = parseLatLng(trimmed);
+  if (bare) {
+    return `https://maps.google.com/maps?q=${bare.lat},${bare.lng}&z=16&output=embed`;
+  }
+
+  if (/\/maps\/embed/i.test(trimmed) || /[?&]output=embed\b/i.test(trimmed)) {
+    return trimmed;
+  }
+  const at = trimmed.match(/@(-?\d+\.?\d*),\s*(-?\d+\.?\d*)/);
+  if (at) {
+    return `https://maps.google.com/maps?q=${at[1]},${at[2]}&z=15&output=embed`;
+  }
+  const d34 = trimmed.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
+  if (d34) {
+    return `https://maps.google.com/maps?q=${d34[1]},${d34[2]}&z=15&output=embed`;
+  }
+  const q = (fallbackQuery ?? "").trim() || trimmed;
+  return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&z=15&output=embed`;
+}
+
+/** Digits-only public WhatsApp / call number from NEXT_PUBLIC_WHATSAPP_NUMBER. */
+export function publicContactDigits(): string {
+  return (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "").replace(/\D/g, "");
+}
+
+export function publicTelHref(): string {
+  const digits = publicContactDigits();
+  return digits ? `tel:+${digits}` : "#";
+}
+
+/** e.g. 919849105449 → +91 98491 05449 */
+export function publicPhoneDisplay(): string {
+  const digits = publicContactDigits();
+  if (!digits) return "";
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return `+91 ${digits.slice(2, 7)} ${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`;
+  }
+  return `+${digits}`;
+}

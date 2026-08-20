@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Phone, ArrowUpRight, Menu, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, publicPhoneDisplay, publicTelHref } from "@/lib/utils";
 
 export interface NavbarProps {
   activeHref?: string;
@@ -22,6 +22,8 @@ const NAV_ITEMS = [
 export function Navbar({ activeHref = "/" }: NavbarProps) {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const telHref = publicTelHref();
+  const phoneLabel = publicPhoneDisplay();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -81,11 +83,11 @@ export function Navbar({ activeHref = "/" }: NavbarProps) {
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <a
-            href="tel:+919849105449"
+            href={telHref}
             className="btn-gold hidden items-center gap-2 rounded-full px-4 py-2 text-[12px] md:inline-flex lg:px-[22px] lg:py-[9px] lg:text-[13px]"
           >
             <Phone className="h-3.5 w-3.5" />
-            <span className="hidden lg:inline">+91 9849105449</span>
+            <span className="hidden lg:inline">{phoneLabel || "Call"}</span>
             <span className="lg:hidden">Call</span>
           </a>
           <Link
@@ -120,11 +122,11 @@ export function Navbar({ activeHref = "/" }: NavbarProps) {
               </Link>
             ))}
             <a
-              href="tel:+919876543210"
+              href={telHref}
               className="btn-gold mt-2 flex items-center justify-center gap-2 rounded-xl py-3 text-sm"
             >
               <Phone className="h-4 w-4" />
-              +91 98765 43210
+              {phoneLabel || "Call"}
             </a>
             <Link
               href="/admin/dashboard"

@@ -185,7 +185,7 @@ export function PlotMatrix({
           const sqFt = num(plot.areaSqFt);
           const rateGadhi = num(plot.pricePerGadhi);
           const rateSqYd = num(plot.pricePerSqYard);
-          const facingLabel = formatFacingLabel(plot.facing);
+          const facingLabel = formatFacingLabel(plot.facing, plot.roadSides);
 
           return (
             <article

@@ -67,6 +67,14 @@ export function VentureUploadForm() {
     if (maps) body.set("googleMapsUrl", maps);
     if (youtube) body.set("youtubeVideoUrl", youtube);
     if (rera) body.set("dtcpReraNumber", rera);
+    const facingEast = String(form.get("facingEast") || "").trim();
+    const facingWest = String(form.get("facingWest") || "").trim();
+    const facingNorth = String(form.get("facingNorth") || "").trim();
+    const facingSouth = String(form.get("facingSouth") || "").trim();
+    if (facingEast) body.set("facingEast", facingEast);
+    if (facingWest) body.set("facingWest", facingWest);
+    if (facingNorth) body.set("facingNorth", facingNorth);
+    if (facingSouth) body.set("facingSouth", facingSouth);
     if (cover) body.set("coverImage", cover);
     if (brochure) body.set("brochure", brochure);
 
@@ -142,8 +150,8 @@ export function VentureUploadForm() {
               />
               <Input
                 name="googleMapsUrl"
-                label="Google Maps URL"
-                placeholder="https://maps.google.com/…"
+                label="Google Maps coordinates"
+                placeholder="15.524404, 80.024833"
               />
               <Input
                 name="youtubeVideoUrl"
@@ -173,6 +181,46 @@ export function VentureUploadForm() {
                 />
               </div>
             </div>
+          </div>
+
+          <div className="rounded-[18px] border border-white/[0.08] bg-midnight p-[26px]">
+            <h3 className="font-display mb-1 text-[15px] font-bold text-pearl">
+              Plot facing by road
+            </h3>
+            <p className="mb-4 text-[13px] text-[#5C6B82]">
+              Enter plot numbers for each road. Multi-road plots: list the same
+              number under every road it faces (e.g. corner → East + North).
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                name="facingEast"
+                label="East road plots"
+                placeholder="101, 102, 105"
+                className="font-mono"
+              />
+              <Input
+                name="facingWest"
+                label="West road plots"
+                placeholder="201, 202"
+                className="font-mono"
+              />
+              <Input
+                name="facingNorth"
+                label="North road plots"
+                placeholder="105, 106"
+                className="font-mono"
+              />
+              <Input
+                name="facingSouth"
+                label="South road plots"
+                placeholder="301, 302"
+                className="font-mono"
+              />
+            </div>
+            <p className="mt-3 text-[11px] leading-relaxed text-[#5C6B82]">
+              Unlisted plots default to East. Unknown numbers (not in SVG) are
+              rejected on publish.
+            </p>
           </div>
         </div>
 
@@ -272,6 +320,7 @@ export function VentureUploadForm() {
               'Add side dims: data-east="32\'-8" data-west="30\'-1" data-north="45\'" data-south="43\'"',
               "Areas auto-compute as Sq. Ft, Gadhi (÷72), and Sq. Yards (÷9)",
               "Missing dims default to 30′×60′ (1,800 Sq. Ft / 25 Gadhi)",
+              "List facing plot numbers per road on the left (multi-road = same id in multiple lists)",
               "Road labels and park areas are ignored automatically",
             ].map((tip, i) => (
               <div

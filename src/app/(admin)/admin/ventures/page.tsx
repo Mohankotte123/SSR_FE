@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, BarChart3, Grid3x3, MapPin, Plus } from "lucide-react";
+import { ArrowLeft, BarChart3, Grid3x3, MapPin, Pencil, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { VentureDeleteButton } from "@/components/admin/VentureDeleteButton";
 import { listVentures } from "@/lib/api";
@@ -31,7 +31,7 @@ export default async function AdminVenturesPage() {
             Select a venture
           </h1>
           <p className="mt-1 text-sm text-[#5C6B82]">
-            Open inventory or analytics for any published layout.
+            Edit details, open inventory, or view analytics for any layout.
           </p>
         </div>
         <Link
@@ -77,8 +77,15 @@ export default async function AdminVenturesPage() {
               </p>
               <div className="flex flex-wrap gap-2">
                 <Link
-                  href={`/admin/ventures/${v.slug}/plots`}
+                  href={`/admin/ventures/${v.slug}/edit`}
                   className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-gold/20 bg-gold/10 px-3 py-2.5 font-display text-xs font-bold text-gold"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit details
+                </Link>
+                <Link
+                  href={`/admin/ventures/${v.slug}/plots`}
+                  className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-white/10 bg-pearl/5 px-3 py-2.5 font-display text-xs font-bold text-[#8B97AD] hover:border-gold/30 hover:text-gold"
                 >
                   <Grid3x3 className="h-3.5 w-3.5" />
                   Inventory

@@ -219,9 +219,16 @@ export function BookingRecordModal({
             {isSold && balance <= 0 ? (
               <Badge tone="success">Fully paid</Badge>
             ) : null}
-            {formatFacingLabel(booking.plot?.facing ?? plot?.facing) ? (
+            {formatFacingLabel(
+              booking.plot?.facing ?? plot?.facing,
+              plot?.roadSides
+            ) ? (
               <span className="rounded-lg border border-white/10 bg-obsidian/40 px-2.5 py-1 text-[11.5px] text-pearl">
-                🧭 {formatFacingLabel(booking.plot?.facing ?? plot?.facing)}
+                🧭{" "}
+                {formatFacingLabel(
+                  booking.plot?.facing ?? plot?.facing,
+                  plot?.roadSides
+                )}
               </span>
             ) : null}
           </div>

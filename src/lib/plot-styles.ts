@@ -1,4 +1,5 @@
 import type { PlotStatus } from "@/types/database";
+import { publicContactDigits } from "@/lib/utils";
 
 export const PLOT_STATUS_COLOR: Record<PlotStatus, string> = {
   available: "#2E9E6B",
@@ -39,10 +40,36 @@ export function statusLabel(status: PlotStatus): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
-/** e.g. "East Facing" or "North-West Corner" */
+/** e.g. "East Facing" or "North-West Corner" or "East · North · West (3 roads)" */
 export function formatFacingLabel(
-  facing: string | null | undefined
+  facing: string | null | undefined,
+  roadSides?: string | null
 ): string | null {
+  const sides = (roadSides ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (sides.length >= 3) {
+    const labels = sides.map((s) =>
+      s.replace(/_/g, "-").replace(/\b\w/g, (c) => c.toUpperCase())
+    );
+    return `${labels.join(" · ")} (${sides.length} roads)`;
+  }
+
+  if (sides.length === 2) {
+    const set = new Set(sides);
+    if (set.has("north") && set.has("east")) return "North-East Corner";
+    if (set.has("north") && set.has("west")) return "North-West Corner";
+    if (set.has("south") && set.has("east")) return "South-East Corner";
+    if (set.has("south") && set.has("west")) return "South-West Corner";
+  }
+
+  if (sides.length === 1) {
+    const s = sides[0];
+    return `${s.replace(/\b\w/g, (c) => c.toUpperCase())} Facing`;
+  }
+
   if (!facing?.trim()) return null;
   const key = facing.trim().toLowerCase().replace(/-/g, "_");
   const map: Record<string, string> = {
@@ -69,11 +96,7 @@ export function whatsappEnquireUrl(opts: {
   phone?: string;
   areaLabel?: string;
 }): string {
-  const phone = (
-    opts.phone ||
-    process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ||
-    "919876543210"
-  ).replace(/\D/g, "");
+  const phone = (opts.phone || publicContactDigits()).replace(/\D/g, "");
   const areaBit = opts.areaLabel ? ` (${opts.areaLabel})` : "";
   const ventureBit = opts.ventureName ? ` in ${opts.ventureName}` : "";
   const text = encodeURIComponent(

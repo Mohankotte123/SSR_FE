@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
+import { publicPhoneDisplay } from "@/lib/utils";
 import type { BrandSettings } from "@/types/database";
 
 export interface FooterProps {
@@ -15,10 +16,10 @@ export function Footer({
   brand,
 }: FooterProps) {
   const year = new Date().getFullYear();
-  const phone = brand?.contactPhone || "+91 98765 43210";
+  const phone = brand?.contactPhone || publicPhoneDisplay();
   const email = brand?.contactEmail || "info@srisairealestates.in";
   const address = brand?.officeAddress || "Ongole, Andhra Pradesh";
-  const telHref = `tel:${phone.replace(/[^\d+]/g, "")}`;
+  const telHref = phone ? `tel:${phone.replace(/[^\d+]/g, "")}` : "#";
 
   return (
     <footer

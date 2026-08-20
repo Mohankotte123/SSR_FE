@@ -115,11 +115,19 @@ export function VentureAnalyticsClient({
               {analytics.venture.location} · live inventory & financials
             </p>
           </div>
-          <VentureSwitcher
-            ventures={ventures}
-            currentSlug={currentSlug}
-            section="analytics"
-          />
+          <div className="flex flex-wrap items-end gap-3">
+            <VentureSwitcher
+              ventures={ventures}
+              currentSlug={currentSlug}
+              section="analytics"
+            />
+            <Link
+              href={`/admin/ventures/${currentSlug}/edit`}
+              className="rounded-[10px] border border-white/10 bg-pearl/5 px-[18px] py-2.5 font-display text-[12.5px] font-bold text-[#8B97AD] hover:border-gold/30 hover:text-gold"
+            >
+              Edit details
+            </Link>
+          </div>
         </div>
       </div>
 

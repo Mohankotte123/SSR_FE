@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { updatePlotStatus } from "@/lib/api";
 import { cn, formatDecimal, num } from "@/lib/utils";
 import { PLOT_STATUS_COLOR, statusLabel } from "@/lib/plot-styles";
-import type { Plot, PlotFacing, PlotStatus, UpdatePlotPayload } from "@/types/database";
+import type { Plot, PlotStatus, UpdatePlotPayload } from "@/types/database";
 
 export interface PlotEditorModalProps {
   open: boolean;
@@ -16,15 +16,13 @@ export interface PlotEditorModalProps {
   onSaved?: (plot: Plot) => void;
 }
 
-const FACING_OPTIONS: Array<{ value: PlotFacing; label: string }> = [
+type Cardinal = "east" | "west" | "north" | "south";
+
+const ROAD_OPTIONS: Array<{ value: Cardinal; label: string }> = [
   { value: "east", label: "East" },
   { value: "west", label: "West" },
   { value: "north", label: "North" },
   { value: "south", label: "South" },
-  { value: "north_east", label: "North-East" },
-  { value: "north_west", label: "North-West" },
-  { value: "south_east", label: "South-East" },
-  { value: "south_west", label: "South-West" },
 ];
 
 const STATUS_OPTIONS: PlotStatus[] = [
@@ -34,10 +32,45 @@ const STATUS_OPTIONS: PlotStatus[] = [
   "blocked",
 ];
 
-function normalizeFacing(value: string | null | undefined): PlotFacing | "" {
-  if (!value) return "";
-  const key = value.trim().toLowerCase().replace(/-/g, "_") as PlotFacing;
-  return FACING_OPTIONS.some((o) => o.value === key) ? key : "";
+function roadsFromPlot(
+  roadSides: string | null | undefined,
+  facing: string | null | undefined
+): Record<Cardinal, boolean> {
+  const base: Record<Cardinal, boolean> = {
+    east: false,
+    west: false,
+    north: false,
+    south: false,
+  };
+  const fromSides = (roadSides ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (fromSides.length > 0) {
+    for (const s of fromSides) {
+      if (s in base) base[s as Cardinal] = true;
+    }
+    return base;
+  }
+  const f = (facing ?? "").toLowerCase().replace(/-/g, "_");
+  if (f === "north_east") {
+    base.north = true;
+    base.east = true;
+  } else if (f === "north_west") {
+    base.north = true;
+    base.west = true;
+  } else if (f === "south_east") {
+    base.south = true;
+    base.east = true;
+  } else if (f === "south_west") {
+    base.south = true;
+    base.west = true;
+  } else if (f === "east" || f === "west" || f === "north" || f === "south") {
+    base[f] = true;
+  } else {
+    base.east = true;
+  }
+  return base;
 }
 
 /**
@@ -52,7 +85,12 @@ export function PlotEditorModal({
 }: PlotEditorModalProps) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [facing, setFacing] = useState<PlotFacing | "">("");
+  const [roadSides, setRoadSides] = useState<Record<Cardinal, boolean>>({
+    east: false,
+    west: false,
+    north: false,
+    south: false,
+  });
   const [roadWidthFt, setRoadWidthFt] = useState("");
   const [eastDim, setEastDim] = useState("");
   const [westDim, setWestDim] = useState("");
@@ -64,7 +102,7 @@ export function PlotEditorModal({
 
   useEffect(() => {
     if (!plot || !open) return;
-    setFacing(normalizeFacing(plot.facing));
+    setRoadSides(roadsFromPlot(plot.roadSides, plot.facing));
     setRoadWidthFt(
       plot.roadWidthFt != null && plot.roadWidthFt !== ""
         ? String(plot.roadWidthFt)
@@ -93,15 +131,21 @@ export function PlotEditorModal({
     setPending(true);
     setError(null);
     try {
+      const selected = (Object.keys(roadSides) as Cardinal[]).filter(
+        (k) => roadSides[k]
+      );
+      if (selected.length === 0) {
+        throw new Error("Select at least one road side for facing.");
+      }
+
       const body: UpdatePlotPayload = {
         status,
         eastDim: eastDim.trim() || null,
         westDim: westDim.trim() || null,
         northDim: northDim.trim() || null,
         southDim: southDim.trim() || null,
+        roadSides: selected.join(","),
       };
-
-      if (facing) body.facing = facing;
 
       if (roadWidthFt.trim() !== "") {
         const road = Number(roadWidthFt);
@@ -186,29 +230,40 @@ export function PlotEditorModal({
             . Updating all four sides recalculates areas on the server.
           </p>
 
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label
-                htmlFor="plot-facing"
-                className="text-[11px] font-bold uppercase tracking-[0.07em] text-[#5C6B82]"
-              >
-                Plot Facing
-              </label>
-              <select
-                id="plot-facing"
-                value={facing}
-                onChange={(e) =>
-                  setFacing(e.target.value as PlotFacing | "")
-                }
-                className="h-11 w-full rounded-[11px] border border-white/10 bg-obsidian/50 px-3.5 text-sm text-pearl outline-none focus:border-gold/40"
-              >
-                <option value="">Select facing…</option>
-                {FACING_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
+          <div className="space-y-3">
+            <div>
+              <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.07em] text-[#5C6B82]">
+                Roads this plot faces
+              </p>
+              <p className="mb-2.5 text-[11px] text-[#5C6B82]">
+                Select every road that touches the plot (1–3 sides).
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {ROAD_OPTIONS.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-2 rounded-[11px] border px-3 py-2.5 text-[12.5px] font-semibold",
+                      roadSides[opt.value]
+                        ? "border-gold/40 bg-gold/10 text-gold"
+                        : "border-white/10 bg-pearl/5 text-[#8B97AD]"
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      className="accent-gold"
+                      checked={roadSides[opt.value]}
+                      onChange={(e) =>
+                        setRoadSides((prev) => ({
+                          ...prev,
+                          [opt.value]: e.target.checked,
+                        }))
+                      }
+                    />
                     {opt.label}
-                  </option>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
 
             <Input

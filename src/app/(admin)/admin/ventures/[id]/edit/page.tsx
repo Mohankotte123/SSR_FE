@@ -45,7 +45,7 @@ export default async function VentureEditPage({ params }: EditPageProps) {
           Edit {venture.title}
         </h1>
         <p className="mt-1 text-sm text-[#5C6B82]">
-          Update copy, media, and brochure (PATCH multipart).
+          Update title, location, map coordinates, media, and brochure.
         </p>
       </div>
       <VentureEditForm venture={venture} />

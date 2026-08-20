@@ -16,7 +16,7 @@ import {
   num,
   plotTotal,
 } from "@/lib/utils";
-import { statusLabel, whatsappEnquireUrl } from "@/lib/plot-styles";
+import { statusLabel, whatsappEnquireUrl, formatFacingLabel } from "@/lib/plot-styles";
 import type { Plot, PlotStatus } from "@/types/database";
 
 export interface PlotDetailDrawerProps {
@@ -181,9 +181,7 @@ export function PlotDetailDrawer({
             {[
               {
                 label: "Facing",
-                value: plot.facing
-                  ? `${String(plot.facing).replace(/_/g, "-")} Facing`
-                  : "—",
+                value: formatFacingLabel(plot.facing, plot.roadSides) ?? "—",
               },
               {
                 label: "Rate / Gadhi",

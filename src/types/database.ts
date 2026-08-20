@@ -84,6 +84,8 @@ export interface Plot {
   pricePerSqYard: string | number;
 
   facing: PlotFacing | string | null;
+  /** Comma-separated roads e.g. "east,north,west" for multi-road plots. */
+  roadSides?: string | null;
   status: PlotStatus;
   roadWidthFt?: string | number | null;
   createdAt: string;
@@ -102,6 +104,7 @@ export interface UpdatePlotPayload {
   pricePerSqFt?: number | null;
   pricePerGadhi?: number | null;
   facing?: PlotFacing | string;
+  roadSides?: string | null;
   roadWidthFt?: number;
 }
 
